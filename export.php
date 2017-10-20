@@ -15,10 +15,15 @@ if (empty($GLOBALS['forum']) || empty($GLOBALS['secret_key'])) {
 $forum = $GLOBALS['forum'];
 $secret_key = $GLOBALS['secret_key'];
 $hypothesis_host = $GLOBALS['hypothesis_host'];
+$media_new_swap = $GLOBALS['media_new_swap'];
+$media_new_location = $GLOBALS['media_new_location'];
+
+if ($media_new_swap && empty($media_new_location)) {
+    throw new Exception('You must set media_new_location, if media_new_swap is set to true.');
+}
 
 $version = '3.0';
 $disqus = new \DisqusAPI($secret_key);
-$media_cdn_swap = true;
 $limit = 0;
 $unused_char = '∞';
 
@@ -29,7 +34,6 @@ $emails_json_file = $export_folder.'/emails.json';
 $api_json_file = $export_folder.'/api.json';
 $media_json_file = $export_folder.'/media.json';
 $media_folder = $export_folder.'/media/';
-$media_cdn = 'https://cdn.elifesciences.org/annotations-media/';
 $disqus_export_file = __DIR__.'/disqus-export.xml';
 $user_map_file = __DIR__.'/user-map.json';
 
@@ -147,12 +151,12 @@ foreach ($list as $i => $post) {
 }
 
 $export_json_flat = json_encode($export_json);
-if ($media_cdn_swap) {
+if ($media_new_swap) {
     $media_search = array_map(function($value){
         return '~'.str_replace('/', '\\\/', preg_quote($value, '~')).'~';
     }, array_keys($media_files));
-    $media_replace = array_map(function($value) use ($media_cdn) {
-        return str_replace('/', '\/', $media_cdn.$value);
+    $media_replace = array_map(function($value) use ($media_new_location) {
+        return str_replace('/', '\/', $media_new_location.$value);
     }, array_values($media_files));
     $export_json_flat = preg_replace($media_search, $media_replace, $export_json_flat);
 }
