@@ -1,0 +1,38 @@
+{
+    "require": {
+        "elife/elife-ingest-xsl": "dev-disqus-to-hypothes-is",
+        "elifesciences/elife-eif-schema": "dev-master",
+        "league/html-to-markdown": "^4.5",
+        "league/commonmark": "^0.15.6",
+        "jasonrgd/disqus-php": "dev-master",
+        "symfony/filesystem": "^3.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "eLife\\": [
+                "domain/src/eLife/"
+            ]
+        },
+        "files": [
+            "config.php"
+        ]
+    },
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/nlisgo/elife-ingest-xsl"
+        },
+        {
+            "type": "package",
+            "package": {
+                "name": "elifesciences/elife-eif-schema",
+                "version": "dev-master",
+                "source": {
+                    "url": "https://github.com/elifesciences/elife-eif-schema",
+                    "type": "git",
+                    "reference": "origin/master"
+                }
+            }
+        }
+    ]
+}
