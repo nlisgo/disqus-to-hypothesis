@@ -67,12 +67,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/nlisgo/elife-ingest-xsl.git",
-                "reference": "ad429f5fb6e3237c7dcbbea2871a3f00e99d95a9"
+                "reference": "c7999ca6277603e37baf972d1c8f438d416b4b67"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/nlisgo/elife-ingest-xsl/zipball/ad429f5fb6e3237c7dcbbea2871a3f00e99d95a9",
-                "reference": "ad429f5fb6e3237c7dcbbea2871a3f00e99d95a9",
+                "url": "https://api.github.com/repos/nlisgo/elife-ingest-xsl/zipball/c7999ca6277603e37baf972d1c8f438d416b4b67",
+                "reference": "c7999ca6277603e37baf972d1c8f438d416b4b67",
                 "shasum": ""
             },
             "require": {
@@ -115,7 +115,7 @@
             "support": {
                 "source": "https://github.com/nlisgo/elife-ingest-xsl/tree/disqus-to-hypothes-is"
             },
-            "time": "2017-10-14 21:19:40"
+            "time": "2017-10-20 15:21:38"
         },
         {
             "name": "elifesciences/elife-eif-schema",

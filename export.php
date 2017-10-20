@@ -8,12 +8,13 @@ use Symfony\Component\Filesystem\Filesystem;
 
 error_reporting(E_ERROR | E_PARSE);
 
-if (empty($GLOBALS['forum']) || empty($GLOBALS['secret_key']) || true) {
+if (empty($GLOBALS['forum']) || empty($GLOBALS['secret_key'])) {
     throw new Exception('You must set a value for forum and secret_key in '.__DIR__.'/config.php');
 }
 
 $forum = $GLOBALS['forum'];
 $secret_key = $GLOBALS['secret_key'];
+$hypothesis_host = $GLOBALS['hypothesis_host'];
 
 $version = '3.0';
 $disqus = new \DisqusAPI($secret_key);
@@ -30,15 +31,17 @@ $media_json_file = $export_folder.'/media.json';
 $media_folder = $export_folder.'/media/';
 $media_cdn = 'https://cdn.elifesciences.org/annotations-media/';
 $disqus_export_file = __DIR__.'/disqus-export.xml';
+$user_map_file = __DIR__.'/user-map.json';
 
-if (!file_exists($disqus_export_file)) {
+if (!(new Filesystem)->exists($disqus_export_file)) {
     throw new Exception('Missing export file: '.$disqus_export_file);
 }
 
 $xmlstring = \eLifeIngestXsl\ConvertXML\XMLString::fromString(file_get_contents($disqus_export_file));
 $convertxml = new \eLifeIngestXsl\ConvertDisqusXmlToHypothesIs($xmlstring);
+$convertxml->setCreator('acct:disqus-import@'.$hypothesis_host);
 
-if (!file_exists($export_json_file)) {
+if (!(new Filesystem)->exists($export_json_file)) {
     $export = $convertxml->getOutput();
     file_put_contents($export_json_file, $export);
 } else {
@@ -46,15 +49,33 @@ if (!file_exists($export_json_file)) {
 }
 
 $export_json = json_decode($export);
+
+if (is_null($export_json)) {
+    throw new Exception('Invalid json in: '.$export_json_file);
+}
+
 $export_json_for_example_html = $export_json;
 $messages = [];
 $user_details = [];
 $emails_json = [];
 $media_files = [];
+$user_map = [];
+
+if ((new Filesystem)->exists($user_map_file)) {
+    $json_string = file_get_contents($user_map_file);
+    $user_map = json_decode($json_string, true);
+    if (is_null($user_map)) {
+        throw new Exception('Invalid json in: '.$user_map_file);
+    }
+}
+
 foreach ($export_json as $k => $item) {
     $post_id = preg_replace('/^disqus\-import:/', '', $item->id);
     $messages[$k] = $post_id;
     $user_details[$post_id] = ['email' => $item->email, 'display_name' => $item->name];
+    if (!empty($user_map[$item->email])) {
+        $user_details[$post_id]['user'] = $user_map[$item->email];
+    }
 }
 
 $users = [];
@@ -76,10 +97,14 @@ while ($continue) {
 };
 
 foreach ($list as $i => $post) {
+    $user = null;
     if (!empty($user_details[$post->id])) {
         $author = $post->author;
         $author->email = $user_details[$post->id]['email'];
         $author->display_name = $user_details[$post->id]['display_name'];
+        if (!empty($user_details[$post->id]['user'])) {
+            $user = $user_details[$post->id]['user'];
+        }
         if (!empty($users[$post->author->id])) {
             $post_count = $users[$post->author->id]->post_count + 1;
         } else {
@@ -115,6 +140,9 @@ foreach ($list as $i => $post) {
             }
         }
     }
+    if (!empty($user)) {
+        $export_json[array_search($post->id, $messages)]->creator = preg_replace('~(acct:)[^@]+~', '$1'.$user, $export_json[array_search($post->id, $messages)]->creator);
+    }
     $export_json[array_search($post->id, $messages)]->body[0]->value = $markdown;
 }
 
@@ -134,12 +162,12 @@ $export_json_flat = preg_replace('~\[(https?:\\\/\\\/[^\]]+\.)(jpg|jpeg|png|gif)
 $export_json_flat = str_replace($unused_char, '\n', $export_json_flat);
 $export_json = json_decode($export_json_flat);
 
-if (is_dir($export_folder)) {
+if ((new Filesystem)->exists($export_folder)) {
     (new Filesystem)->remove($export_folder);
 }
 (new Filesystem)->mkdir($export_folder);
 
-if (is_dir($media_folder)) {
+if ((new Filesystem)->exists($media_folder)) {
     (new Filesystem)->remove($media_folder);
 }
 (new Filesystem)->mkdir($media_folder);
@@ -152,6 +180,8 @@ file_put_contents($emails_json_file, json_encode($emails_json));
 
 $output = ['users' => $users, 'list' => $list];
 file_put_contents($api_json_file, json_encode($output['list']));
+
+file_put_contents($export_json_file, json_encode($export_json));
 
 $export_tree = $convertxml->getTree($export_json);
 
