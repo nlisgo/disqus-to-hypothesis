@@ -3,6 +3,8 @@
 
 require(__DIR__.'/vendor/autoload.php');
 
+use GuzzleHttp\Client;
+use GuzzleHttp\TransferStats;
 use League\HTMLToMarkdown\HtmlConverter;
 use Symfony\Component\Filesystem\Filesystem;
 
@@ -17,6 +19,7 @@ $secret_key = $GLOBALS['secret_key'];
 $hypothesis_host = $GLOBALS['hypothesis_host'];
 $media_new_swap = $GLOBALS['media_new_swap'];
 $media_new_location = $GLOBALS['media_new_location'];
+$effective_uri_check = $GLOBALS['effective_uri_check'];
 
 if ($media_new_swap && empty($media_new_location)) {
     throw new Exception('You must set media_new_location, if media_new_swap is set to true.');
@@ -33,9 +36,12 @@ $export_html_file = $export_folder.'/export.html';
 $emails_json_file = $export_folder.'/emails.json';
 $api_json_file = $export_folder.'/api.json';
 $media_json_file = $export_folder.'/media.json';
+$rejected_json_file = $export_folder.'/rejected.json';
 $media_folder = $export_folder.'/media/';
 $disqus_export_file = __DIR__.'/disqus-export.xml';
 $user_map_file = __DIR__.'/user-map.json';
+$target_map_file = __DIR__.'/target-map.json';
+$target_map_autosave = true;
 
 if (!(new Filesystem)->exists($disqus_export_file)) {
     throw new Exception('Missing export file: '.$disqus_export_file);
@@ -50,6 +56,8 @@ if (!(new Filesystem)->exists($export_json_file)) {
     file_put_contents($export_json_file, $export);
 } else {
     $export = file_get_contents($export_json_file);
+    // Don't perform check again.
+    $effective_uri_check = false;
 }
 
 $export_json = json_decode($export);
@@ -58,12 +66,13 @@ if (is_null($export_json)) {
     throw new Exception('Invalid json in: '.$export_json_file);
 }
 
-$export_json_for_example_html = $export_json;
 $messages = [];
 $user_details = [];
 $emails_json = [];
 $media_files = [];
 $user_map = [];
+$target_map = [];
+$rejected_annotations = [];
 
 if ((new Filesystem)->exists($user_map_file)) {
     $json_string = file_get_contents($user_map_file);
@@ -73,12 +82,40 @@ if ((new Filesystem)->exists($user_map_file)) {
     }
 }
 
+if ((new Filesystem)->exists($target_map_file)) {
+    $json_string = file_get_contents($target_map_file);
+    $target_map = json_decode($json_string, true);
+    if (is_null($target_map)) {
+        throw new Exception('Invalid json in: '.$target_map_file);
+    }
+}
+
 foreach ($export_json as $k => $item) {
-    $post_id = preg_replace('/^disqus\-import:/', '', $item->id);
+    $post_id = preg_replace('~^disqus\-import:~', '', $item->id);
     $messages[$k] = $post_id;
     $user_details[$post_id] = ['email' => $item->email, 'display_name' => $item->name];
     if (!empty($user_map[$item->email])) {
         $user_details[$post_id]['user'] = $user_map[$item->email];
+    }
+    if ($effective_uri_check) {
+        if (!isset($target_map[$item->target]) && strpos($item->target, 'disqus-import:') !== 0) {
+            try {
+                $client = new Client();
+                $client->get($item->target, [
+                    'on_stats' => function (TransferStats $stats) use (&$effective_url) {
+                        $effective_url = (string) $stats->getEffectiveUri();
+                    }
+                ])->getBody()->getContents();
+                $target_map[$item->target] = $effective_url;
+                $target_map[$effective_url] = $effective_url;
+            } catch (Exception $e) {
+                $rejected_annotations[] = ['reason' => $e->getMessage(), 'item' => $item];
+                $target_map[$item->target] = null;
+            }
+        }
+        if ($target_map_autosave) {
+            file_put_contents($target_map_file, json_encode($target_map));
+        }
     }
 }
 
@@ -166,6 +203,14 @@ $export_json_flat = preg_replace('~\[(https?:\\\/\\\/[^\]]+\.)(jpg|jpeg|png|gif)
 $export_json_flat = str_replace($unused_char, '\n', $export_json_flat);
 $export_json = json_decode($export_json_flat);
 
+foreach ($export_json as $k => $item) {
+    if (!empty($target_map[$item->target])) {
+        $export_json[$k]->target = $target_map[$item->target];
+    } elseif (strpos($export_json[$k]->target, 'disqus-import:') !== 0) {
+        $export_json[$k]->found = false;
+    }
+}
+
 if ((new Filesystem)->exists($export_folder)) {
     (new Filesystem)->remove($export_folder);
 }
@@ -194,3 +239,5 @@ $export_html = preg_replace('~(</title>)(</head>)~', '$1<style> img {max-width: 
 file_put_contents($export_html_file, $export_html);
 
 file_put_contents($media_json_file, json_encode($media_files));
+
+file_put_contents($rejected_json_file, json_encode($rejected_annotations));
