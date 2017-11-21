@@ -28,10 +28,12 @@ if ($media_new_swap && empty($media_new_location)) {
 $version = '3.0';
 $disqus = new \DisqusAPI($secret_key);
 $limit = 0;
-$unused_char = '∞';
+$unused_char_1 = '∞';
+$unused_char_2 = 'ª';
 
 $export_folder = __DIR__.'/export/';
 $export_json_file = $export_folder.'/export.json';
+$export_json_clean_file = $export_folder.'/export-clean.json';
 $export_html_file = $export_folder.'/export.html';
 $emails_json_file = $export_folder.'/emails.json';
 $api_json_file = $export_folder.'/api.json';
@@ -39,9 +41,12 @@ $media_json_file = $export_folder.'/media.json';
 $rejected_json_file = $export_folder.'/rejected.json';
 $media_folder = $export_folder.'/media/';
 $disqus_export_file = __DIR__.'/disqus-export.xml';
+$disqus_json_file = __DIR__.'/disqus-export.json';
+$disqus_api_file = __DIR__.'/disqus-api.json';
 $user_map_file = __DIR__.'/user-map.json';
 $target_map_file = __DIR__.'/target-map.json';
 $target_map_autosave = true;
+$disqus_api_autosave = true;
 
 if (!(new Filesystem)->exists($disqus_export_file)) {
     throw new Exception('Missing export file: '.$disqus_export_file);
@@ -51,13 +56,11 @@ $xmlstring = \eLifeIngestXsl\ConvertXML\XMLString::fromString(file_get_contents(
 $convertxml = new \eLifeIngestXsl\ConvertDisqusXmlToHypothesIs($xmlstring);
 $convertxml->setCreator('acct:disqus-import@'.$hypothesis_host);
 
-if (!(new Filesystem)->exists($export_json_file)) {
+if (!(new Filesystem)->exists($disqus_json_file)) {
     $export = $convertxml->getOutput();
-    file_put_contents($export_json_file, $export);
+    file_put_contents($disqus_json_file, $export);
 } else {
-    $export = file_get_contents($export_json_file);
-    // Don't perform check again.
-    $effective_uri_check = false;
+    $export = file_get_contents($disqus_json_file);
 }
 
 $export_json = json_decode($export);
@@ -66,6 +69,7 @@ if (is_null($export_json)) {
     throw new Exception('Invalid json in: '.$export_json_file);
 }
 
+$export_json_clean = [];
 $messages = [];
 $user_details = [];
 $emails_json = [];
@@ -124,18 +128,25 @@ $list = [];
 $continue = true;
 $args = ['forum' => $forum, 'version' => $version];
 
-while ($continue) {
-    $data = $disqus->posts->list($args);
-    if (!empty($data->response)) {
-        $list = array_merge($list, $data->response);
-    }
+if (!(new Filesystem)->exists($disqus_api_file)) {
+    while ($continue) {
+        $data = $disqus->posts->list($args);
+        if (!empty($data->response)) {
+            $list = array_merge($list, $data->response);
+            if ($disqus_api_autosave) {
+                file_put_contents($disqus_api_file, json_encode($list));
+            }
+        }
 
-    if ($data->cursor->hasNext && ($limit <= 0 || count($list) < $limit)) {
-        $args['cursor'] = $data->cursor->next;
-    } else {
-        $continue = !$continue;
-    }
-};
+        if ($data->cursor->hasNext && ($limit <= 0 || count($list) < $limit)) {
+            $args['cursor'] = $data->cursor->next;
+        } else {
+            $continue = !$continue;
+        }
+    };
+} else {
+    $list = json_decode(file_get_contents($disqus_api_file));
+}
 
 foreach ($list as $i => $post) {
     $user = null;
@@ -160,10 +171,15 @@ foreach ($list as $i => $post) {
     }
     $converter = new HtmlConverter();
     $markdown = $post->raw_message;
-    $markdown = preg_replace('~(\\n){2,}~', $unused_char, $markdown);
+    $markdown = preg_replace('~<n>~', '&lt;n&gt;', $markdown);
+    $markdown = preg_replace('~<(?!a|p|strong|em|br|iframe|b|i|u|script)([^\/])~', '&lt;$1', $markdown);
+    $markdown = preg_replace('~<br/?>~', $unused_char_2, $markdown);
+    $markdown = preg_replace('~(\\n){2,}~', $unused_char_1, $markdown);
+    $markdown = preg_replace('~(\\n)~', $unused_char_2, $markdown);
     $markdown = preg_replace('~(http[^\s]+)[ ]+\1~', '$1', $markdown);
     $markdown = $converter->convert($markdown);
-    $markdown = str_replace($unused_char, PHP_EOL.PHP_EOL, $markdown);
+    $markdown = str_replace($unused_char_1, PHP_EOL.PHP_EOL, $markdown);
+    $markdown = str_replace($unused_char_2, PHP_EOL, $markdown);
     $markdown = preg_replace('~(^|\\n)[ ]+~', '$1', $markdown);
     $markdown = preg_replace('~(^|\\n)([a-z0-9]+)(\\\){0,}(\\)|\.) ~', '$1($2) ', $markdown);
     if (!empty($post->media)) {
@@ -197,10 +213,10 @@ if ($media_new_swap) {
     }, array_values($media_files));
     $export_json_flat = preg_replace($media_search, $media_replace, $export_json_flat);
 }
-$export_json_flat = str_replace('\n', $unused_char, $export_json_flat);
-$export_json_flat = preg_replace('~( |\\t|'.$unused_char.'|[^:]\"|\"value\":\")(https?:\\\/\\\/[^\s\"'.$unused_char.']+)~', '$1[$2]($2)', $export_json_flat);
+$export_json_flat = str_replace('\n', $unused_char_2, $export_json_flat);
+$export_json_flat = preg_replace('~( |\\t|'.$unused_char_2.'|[^:]\"|\"value\":\")(https?:\\\/\\\/[^\s\"'.$unused_char_2.']+)~', '$1[$2]($2)', $export_json_flat);
 $export_json_flat = preg_replace('~\[(https?:\\\/\\\/[^\]]+\.)(jpg|jpeg|png|gif)\]~', '[![]($1$2)]', $export_json_flat);
-$export_json_flat = str_replace($unused_char, '\n', $export_json_flat);
+$export_json_flat = str_replace($unused_char_2, '\n', $export_json_flat);
 $export_json = json_decode($export_json_flat);
 
 foreach ($export_json as $k => $item) {
@@ -209,6 +225,9 @@ foreach ($export_json as $k => $item) {
     } elseif (strpos($export_json[$k]->target, 'disqus-import:') !== 0) {
         $export_json[$k]->found = false;
     }
+    $export_json_clean[$k] = $export_json[$k];
+    unset($export_json_clean[$k]->email);
+    unset($export_json_clean[$k]->name);
 }
 
 if ((new Filesystem)->exists($export_folder)) {
@@ -231,6 +250,7 @@ $output = ['users' => $users, 'list' => $list];
 file_put_contents($api_json_file, json_encode($output['list']));
 
 file_put_contents($export_json_file, json_encode($export_json));
+file_put_contents($export_json_clean_file, json_encode($export_json_clean));
 
 $export_tree = $convertxml->getTree($export_json);
 

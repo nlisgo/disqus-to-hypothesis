@@ -1,4 +1,6 @@
 /config.php
+/disqus-api.json
+/disqus-export.json
 /disqus-export.xml
 /export/
 /target-map.json
