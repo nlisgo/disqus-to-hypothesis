@@ -16,7 +16,7 @@ if (empty($GLOBALS['forum']) || empty($GLOBALS['secret_key'])) {
 
 $forum = $GLOBALS['forum'];
 $secret_key = $GLOBALS['secret_key'];
-$hypothesis_host = $GLOBALS['hypothesis_host'];
+$hypothesis_authority = $GLOBALS['hypothesis_authority'];
 $media_new_swap = $GLOBALS['media_new_swap'];
 $media_new_location = $GLOBALS['media_new_location'];
 $effective_uri_check = $GLOBALS['effective_uri_check'];
@@ -34,6 +34,7 @@ $unused_char_2 = 'ª';
 $export_folder = __DIR__.'/export/';
 $export_json_file = $export_folder.'/export.json';
 $export_json_clean_file = $export_folder.'/export-clean.json';
+$export_json_tree_file = $export_folder.'/export-tree.json';
 $export_html_file = $export_folder.'/export.html';
 $emails_json_file = $export_folder.'/emails.json';
 $api_json_file = $export_folder.'/api.json';
@@ -54,7 +55,7 @@ if (!(new Filesystem)->exists($disqus_export_file)) {
 
 $xmlstring = \eLifeIngestXsl\ConvertXML\XMLString::fromString(file_get_contents($disqus_export_file));
 $convertxml = new \eLifeIngestXsl\ConvertDisqusXmlToHypothesIs($xmlstring);
-$convertxml->setCreator('acct:disqus-import@'.$hypothesis_host);
+$convertxml->setCreator('acct:disqus-import@'.$hypothesis_authority);
 
 if (!(new Filesystem)->exists($disqus_json_file)) {
     $export = $convertxml->getOutput();
@@ -223,11 +224,13 @@ foreach ($export_json as $k => $item) {
     if (!empty($target_map[$item->target])) {
         $export_json[$k]->target = $target_map[$item->target];
     } elseif (strpos($export_json[$k]->target, 'disqus-import:') !== 0) {
-        $export_json[$k]->found = false;
+        $export_json[$k]->target = false;
     }
-    $export_json_clean[$k] = $export_json[$k];
-    unset($export_json_clean[$k]->email);
-    unset($export_json_clean[$k]->name);
+    if (!empty($export_json[$k]->target)) {
+        $export_json_clean[$k] = $export_json[$k];
+        unset($export_json_clean[$k]->email);
+        unset($export_json_clean[$k]->name);
+    }
 }
 
 if ((new Filesystem)->exists($export_folder)) {
@@ -250,9 +253,10 @@ $output = ['users' => $users, 'list' => $list];
 file_put_contents($api_json_file, json_encode($output['list']));
 
 file_put_contents($export_json_file, json_encode($export_json));
-file_put_contents($export_json_clean_file, json_encode($export_json_clean));
+file_put_contents($export_json_clean_file, json_encode(array_values($export_json_clean)));
 
 $export_tree = $convertxml->getTree($export_json);
+file_put_contents($export_json_tree_file, $export_tree);
 
 $export_html = $convertxml->presentOutput(json_decode($export_tree));
 $export_html = preg_replace('~(</title>)(</head>)~', '$1<style> img {max-width: 350px;} </style>$2', $export_html);

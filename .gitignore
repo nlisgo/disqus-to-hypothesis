@@ -1,7 +1,9 @@
 /config.php
+/delete/
 /disqus-api.json
 /disqus-export.json
 /disqus-export.xml
+/import/
 /export/
 /target-map.json
 /user-map.json
