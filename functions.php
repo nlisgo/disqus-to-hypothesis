@@ -2,8 +2,10 @@
 
 use Firebase\JWT\JWT;
 use GuzzleHttp\Client;
-use GuzzleHttp\Exception\RequestException;
 
+/**
+ * @return string
+ */
 function fetch_jwt($username, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt) {
     $now = time();
     $userid = "acct:{$username}@".$hypothesis_authority;
@@ -19,6 +21,9 @@ function fetch_jwt($username, $hypothesis_authority, $hypothesis_client_id_jwt, 
     return JWT::encode($payload, $hypothesis_secret_key_jwt, 'HS256');
 }
 
+/**
+ * @return string
+ */
 function swap_jwt_for_api_token($jwt, $hypothesis_api) {
     $client = new Client();
     $response = $client->request('POST', $hypothesis_api.'token', [
@@ -31,6 +36,9 @@ function swap_jwt_for_api_token($jwt, $hypothesis_api) {
     return $data->access_token;
 }
 
+/**
+ * @return array
+ */
 function gather_annotation_ids_for_username($username, $hypothesis_api, $api_token, $hypothesis_group) {
     $client = new Client();
     $response = $client->request('GET', $hypothesis_api.'search?limit=1&group='.$hypothesis_group.'&user='.$username, [
@@ -56,7 +64,6 @@ function gather_annotation_ids_for_username($username, $hypothesis_api, $api_tok
 }
 
 /**
- *
  * @return string|bool
  */
 function post_annotation($annotation, $hypothesis_api, $api_token, &$error = []) {
@@ -76,6 +83,9 @@ function post_annotation($annotation, $hypothesis_api, $api_token, &$error = [])
     }
 }
 
+/**
+ * @return void
+ */
 function debug($output, $interupt = false) {
     $debug = true;
     if ($debug) {
