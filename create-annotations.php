@@ -28,6 +28,7 @@ $hypothesis_secret_key_jwt = $GLOBALS['hypothesis_secret_key_jwt'];
 
 $limit = 0;
 $offset = 0;
+$group_size = 100;
 
 $export_folder = __DIR__.'/export/';
 $export_json_clean_file = $export_folder.'/export-clean.json';
@@ -39,6 +40,7 @@ $import_json_annotations_file = $import_folder.'/import-annotations.json';
 $import_json_annotation_dates_file = $import_folder.'/import-annotation-dates.json';
 $import_json_ids_file = $import_folder.'/import-ids.json';
 $import_json_failures_file = $import_folder.'/import-failures.json';
+$import_json_missing_file = $import_folder.'/import-missing.json';
 
 if (!(new Filesystem)->exists($export_json_clean_file)) {
     throw new Exception('Missing export file: '.$export_json_clean_file);
@@ -59,7 +61,8 @@ $api_tokens = [];
 $references = [];
 $annotations_json = [];
 $annotations_json_dates = [];
-$failures = [];
+$failures_json = [];
+$missing_json = [];
 
 $export_json = json_decode(file_get_contents($export_json_clean_file));
 $export_tree = json_decode(file_get_contents($export_json_tree_file));
@@ -93,66 +96,26 @@ if ((count($export_json_asc) !== count($export_json))) {
     throw new Exception('Date clash');
 }
 
-$client = new Client();
+$total = count($export_json_asc);
+$group_limit = ($group_size > 0) ? $group_size : $total;
 $co = 0;
-foreach ($export_json_asc as $item) {
+for ($i = 0; $i < $total; $i += $group_limit) {
     $co++;
-    $item->creator = preg_replace('~(acct:disqus)\-(import)~', '$1_$2', $item->creator);
-    $username = preg_replace('~acct:([^@]+)@.+~', '$1', $item->creator);
-    if (!isset($jwts[$username])) {
-        $jwts[$username] = fetch_jwt($username, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt);
-    }
-    $jwt = $jwts[$username];
-    if (!isset($api_tokens[$jwt])) {
-        $api_tokens[$jwt] = swap_jwt_for_api_token($jwt, $hypothesis_api);
-    }
-    $api_token = $api_tokens[$jwt];
-    $refs = [];
-    if (!empty($export_references[$item->target])) {
-        foreach ($export_references[$item->target] as $target) {
-            if (!empty($references[$target])) {
-                $refs[] = $references[$target];
-            }
-        }
-    }
-    $annotation = [
-        'group' => $hypothesis_group,
-        'permissions' => [
-            'read' => ['group:'.$hypothesis_group],
-            'update' => [$item->creator],
-            'delete' => [$item->creator],
-            'admin' => [$item->creator],
-        ],
-        'references' => $refs,
-        'tags' => [],
-        'target' => [
-            ['source' => $item->target],
-        ],
-        'text' => $item->body[0]->value,
-        'uri' => $item->target,
-    ];
-
-    $error = [];
-    $id = post_annotation($annotation, $hypothesis_api, $api_token, $error);
-
-    if (!empty($id)) {
-        debug(sprintf('%d of %d posted (%s:%s).', $co, count($export_json_asc), $item->id, $id));
-        $references[$item->target] = $id;
-        $import_json[] = $id;
-        $import_json_ids[$username][] = $id;
-        $annotations_json_dates[] = [
-            'imported_id' => $id,
-            'created' => $item->created,
-            'modified' => $item->modified,
-        ];
-        $annotations_json[] = $annotation;
-    } elseif (!empty($error)) {
-        $failures[] = ['annotation' => $annotation] + $error;
-    }
+    $items = array_slice($export_json_asc, $i, $group_size);
+    post_annotations($items, $co, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api, $hypothesis_group, $jwts, $api_tokens);
+    debug(sprintf('Posted %d - %d of %d (in all groups)', $i+1, $i+count($items), $total));
 }
 
-if (!empty($failures)) {
-    echo sprintf('%d failures found.', count($failures));
+$references = post_annotations_references();
+$import_json = post_annotations_import_json();
+$import_json_ids = post_annotations_import_json_ids();
+$annotations_json_dates = post_annotations_import_json_dates();
+$annotations_json = post_annotations_import_json_annotations();
+$missing_json = post_annotations_import_json_missing();
+$failures_json = post_annotations_import_json_failures();
+
+if (!empty($failures_json)) {
+    echo sprintf('%d failures found.', count($failures_json));
 }
 
 if ((new Filesystem)->exists($import_folder)) {
@@ -160,8 +123,10 @@ if ((new Filesystem)->exists($import_folder)) {
 }
 (new Filesystem)->mkdir($import_folder);
 
+// Store: capture the annotations that were missing after appearing to be created.
+file_put_contents($import_json_missing_file, json_encode($missing_json));
 // Store: capture the failures to create annotations.
-file_put_contents($import_json_failures_file, json_encode($failures));
+file_put_contents($import_json_failures_file, json_encode($failures_json));
 // Store: the parents of each annotation processed.
 file_put_contents($import_json_references_file, json_encode($export_references));
 // Store: primary output for Hypothesis to set correct dates for annotations.

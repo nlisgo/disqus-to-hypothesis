@@ -66,10 +66,11 @@ The create-annotations fixtures can be found in the `./import/` folder.
     1. `./import/import-annotation-dates.json` - array of all annotations processed, could be used by Hypothesis to amend dates of created annotations.
     1. `./import/ids.json` - annotations ids grouped by username.
 * Other:
-    1. `import.json` - a simple list of all annotation ids.
-    1. `import-annotations.json` - array of all annotations processed.
-    1. `import-failures.json` - capture the failures to create annotations.
-    1. `import-references.json` - the parents of each annotation processed.
+    1. `./import/import.json` - a simple list of all annotation ids.
+    1. `./import/import-annotations.json` - array of all annotations processed.
+    1. `./import/import-failures.json` - capture the failures to create annotations.
+    1. `./import/import-references.json` - the parents of each annotation processed.
+    1. `./import/import-missing.json` - capture the annotations that were missing after appearing to be created.
 
 ## Delete annotations on Hypothesis publisher group. (`./delete-annotations.php`)
 
