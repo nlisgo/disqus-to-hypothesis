@@ -28,9 +28,9 @@ $hypothesis_client_id_jwt = $GLOBALS['hypothesis_client_id_jwt'];
 $hypothesis_secret_key_jwt = $GLOBALS['hypothesis_secret_key_jwt'];
 
 $delete_folder = __DIR__.'/delete/';
-$delete_json_file = $delete_folder.'/delete.jspn';
+$delete_json_file = $delete_folder.'/delete.json';
 $import_folder = __DIR__.'/import/';
-$import_json_ids_file = $import_folder.'/import-ids.jspn';
+$import_json_ids_file = $import_folder.'/import-ids.json';
 
 if (!(new Filesystem)->exists($import_json_ids_file)) {
     throw new Exception('Missing import file: '.$import_json_ids_file);
@@ -69,4 +69,5 @@ if ((new Filesystem)->exists($delete_folder)) {
 }
 (new Filesystem)->mkdir($delete_folder);
 
+// Store: processed deletions grouped by username.
 file_put_contents($delete_json_file, json_encode($delete_json));

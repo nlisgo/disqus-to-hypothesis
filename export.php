@@ -37,7 +37,6 @@ $export_json_clean_file = $export_folder.'/export-clean.json';
 $export_json_tree_file = $export_folder.'/export-tree.json';
 $export_html_file = $export_folder.'/export.html';
 $emails_json_file = $export_folder.'/emails.json';
-$api_json_file = $export_folder.'/api.json';
 $media_json_file = $export_folder.'/media.json';
 $rejected_json_file = $export_folder.'/rejected.json';
 $media_folder = $export_folder.'/media/';
@@ -50,15 +49,17 @@ $target_map_autosave = true;
 $disqus_api_autosave = true;
 
 if (!(new Filesystem)->exists($disqus_export_file)) {
-    throw new Exception('Missing export file: '.$disqus_export_file);
+    throw new Exception('Missing disqus export file: '.$disqus_export_file);
 }
 
 $xmlstring = \eLifeIngestXsl\ConvertXML\XMLString::fromString(file_get_contents($disqus_export_file));
 $convertxml = new \eLifeIngestXsl\ConvertDisqusXmlToHypothesIs($xmlstring);
 $convertxml->setCreator('acct:disqus-import@'.$hypothesis_authority);
 
+// Convert Disqus XML to json structure required to import to Hypothesis.
 if (!(new Filesystem)->exists($disqus_json_file)) {
     $export = $convertxml->getOutput();
+    // Store: conversion from XML to import structure preserved in file.
     file_put_contents($disqus_json_file, $export);
 } else {
     $export = file_get_contents($disqus_json_file);
@@ -102,6 +103,7 @@ foreach ($export_json as $k => $item) {
     if (!empty($user_map[$item->email])) {
         $user_details[$post_id]['user'] = $user_map[$item->email];
     }
+    // Convert target url's to effective url's.
     if ($effective_uri_check) {
         if (!isset($target_map[$item->target]) && strpos($item->target, 'disqus-import:') !== 0) {
             try {
@@ -119,6 +121,7 @@ foreach ($export_json as $k => $item) {
             }
         }
         if ($target_map_autosave) {
+            // Store: array of target url keys with effective url values.
             file_put_contents($target_map_file, json_encode($target_map));
         }
     }
@@ -129,12 +132,14 @@ $list = [];
 $continue = true;
 $args = ['forum' => $forum, 'version' => $version];
 
+// Get disqus list from API.
 if (!(new Filesystem)->exists($disqus_api_file)) {
     while ($continue) {
         $data = $disqus->posts->list($args);
         if (!empty($data->response)) {
             $list = array_merge($list, $data->response);
             if ($disqus_api_autosave) {
+                // Store: results of disqus list queries stored to file, so we can re-run subsequent operations quickly.
                 file_put_contents($disqus_api_file, json_encode($list));
             }
         }
@@ -168,21 +173,31 @@ foreach ($list as $i => $post) {
         $list[$i]->author = $author;
         $emails_json[$author->email] = $author->display_name;
     } else {
+        // This is not expected but is used as a marker in case no email is found.
         $list[$i]->author->email = '**empty**';
     }
     $converter = new HtmlConverter();
     $markdown = $post->raw_message;
+    // Handle a couple of known instances of <n> used to display a formula.
     $markdown = preg_replace('~<n>~', '&lt;n&gt;', $markdown);
+    // Handle instances of < that are not html and should be converted to &lt;.
     $markdown = preg_replace('~<(?!a|p|strong|em|br|iframe|b|i|u|script)([^\/])~', '&lt;$1', $markdown);
+    // Preserve linebreaks <br> and \n, so they can be reinstated after markdown conversion.
     $markdown = preg_replace('~<br/?>~', $unused_char_2, $markdown);
     $markdown = preg_replace('~(\\n){2,}~', $unused_char_1, $markdown);
     $markdown = preg_replace('~(\\n)~', $unused_char_2, $markdown);
+    // Where a url is repeated, remove the 2nd instance.
     $markdown = preg_replace('~(http[^\s]+)[ ]+\1~', '$1', $markdown);
+    // Convert to markdown.
     $markdown = $converter->convert($markdown);
+    // Reinstate linebreaks.
     $markdown = str_replace($unused_char_1, PHP_EOL.PHP_EOL, $markdown);
     $markdown = str_replace($unused_char_2, PHP_EOL, $markdown);
+    // Remove space at the beginning of a line.
     $markdown = preg_replace('~(^|\\n)[ ]+~', '$1', $markdown);
+    // Detect and standardise list ordinals.
     $markdown = preg_replace('~(^|\\n)([a-z0-9]+)(\\\){0,}(\\)|\.) ~', '$1($2) ', $markdown);
+    // Append attached media files to the end of message.
     if (!empty($post->media)) {
         $co = 0;
         foreach ($post->media as $media) {
@@ -193,6 +208,7 @@ foreach ($list as $i => $post) {
                 }
                 if ($media->mediaType == 2) {
                     $co++;
+                    // Add entry for disqus media files so we can upload files to alternative location.
                     $media_files[$resolvedUrl] = sprintf('%d-%s-%s', $post->id, str_pad($co, 3, '0', STR_PAD_LEFT), basename($resolvedUrl));
                 }
             }
@@ -204,6 +220,7 @@ foreach ($list as $i => $post) {
     $export_json[array_search($post->id, $messages)]->body[0]->value = $markdown;
 }
 
+// Replace media files in messages with paths to alternative location.
 $export_json_flat = json_encode($export_json);
 if ($media_new_swap) {
     $media_search = array_map(function($value){
@@ -214,6 +231,7 @@ if ($media_new_swap) {
     }, array_values($media_files));
     $export_json_flat = preg_replace($media_search, $media_replace, $export_json_flat);
 }
+// Convert url's to markdown links and link images to their files.
 $export_json_flat = str_replace('\n', $unused_char_2, $export_json_flat);
 $export_json_flat = preg_replace('~( |\\t|'.$unused_char_2.'|[^:]\"|\"value\":\")(https?:\\\/\\\/[^\s\"'.$unused_char_2.']+)~', '$1[$2]($2)', $export_json_flat);
 $export_json_flat = preg_replace('~\[(https?:\\\/\\\/[^\]]+\.)(jpg|jpeg|png|gif)\]~', '[![]($1$2)]', $export_json_flat);
@@ -243,25 +261,30 @@ if ((new Filesystem)->exists($media_folder)) {
 }
 (new Filesystem)->mkdir($media_folder);
 
+// Store: disqus media files to be uploaded to alternative location.
 foreach ($media_files as $from => $to) {
     (new Filesystem)->copy($from, $media_folder.$to);
 }
 
+// Store: email and display name pairs for profile import.
 file_put_contents($emails_json_file, json_encode($emails_json));
 
-$output = ['users' => $users, 'list' => $list];
-file_put_contents($api_json_file, json_encode($output['list']));
-
+// Store: artifact of many steps of processing on disqus data.
 file_put_contents($export_json_file, json_encode($export_json));
+// Store: primary output that will be used to create annotations from.
 file_put_contents($export_json_clean_file, json_encode(array_values($export_json_clean)));
 
+// Store: secondary output that will be used to create annotations from, used to determine the parents of an annotation.
 $export_tree = $convertxml->getTree($export_json);
 file_put_contents($export_json_tree_file, $export_tree);
 
+// Store: example HTML output for verification purposes.
 $export_html = $convertxml->presentOutput(json_decode($export_tree));
 $export_html = preg_replace('~(</title>)(</head>)~', '$1<style> img {max-width: 350px;} </style>$2', $export_html);
 file_put_contents($export_html_file, $export_html);
 
+// Store: legacy url key's and new media file name values.
 file_put_contents($media_json_file, json_encode($media_files));
 
+// Store: comments that will not be migrated because we could not find effective url.
 file_put_contents($rejected_json_file, json_encode($rejected_annotations));

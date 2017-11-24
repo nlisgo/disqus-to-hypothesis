@@ -33,12 +33,12 @@ $export_folder = __DIR__.'/export/';
 $export_json_clean_file = $export_folder.'/export-clean.json';
 $export_json_tree_file = $export_folder.'/export-tree.json';
 $import_folder = __DIR__.'/import/';
-$import_json_file = $import_folder.'/import.jspn';
-$import_json_references_file = $import_folder.'/import-references.jspn';
-$import_json_annotations_file = $import_folder.'/import-annotations.jspn';
-$import_json_annotation_dates_file = $import_folder.'/import-annotation-dates.jspn';
-$import_json_ids_file = $import_folder.'/import-ids.jspn';
-$import_json_failures_file = $import_folder.'/import-failures.jspn';
+$import_json_file = $import_folder.'/import.json';
+$import_json_references_file = $import_folder.'/import-references.json';
+$import_json_annotations_file = $import_folder.'/import-annotations.json';
+$import_json_annotation_dates_file = $import_folder.'/import-annotation-dates.json';
+$import_json_ids_file = $import_folder.'/import-ids.json';
+$import_json_failures_file = $import_folder.'/import-failures.json';
 
 if (!(new Filesystem)->exists($export_json_clean_file)) {
     throw new Exception('Missing export file: '.$export_json_clean_file);
@@ -140,7 +140,8 @@ foreach ($export_json_asc as $item) {
         $references[$item->target] = $id;
         $import_json[] = $id;
         $import_json_ids[$username][] = $id;
-        $annotations_json_dates[$id] = [
+        $annotations_json_dates[] = [
+            'imported_id' => $id,
             'created' => $item->created,
             'modified' => $item->modified,
         ];
@@ -159,9 +160,15 @@ if ((new Filesystem)->exists($import_folder)) {
 }
 (new Filesystem)->mkdir($import_folder);
 
+// Store: capture the failures to create annotations.
 file_put_contents($import_json_failures_file, json_encode($failures));
+// Store: the parents of each annotation processed.
 file_put_contents($import_json_references_file, json_encode($export_references));
+// Store: primary output for Hypothesis to set correct dates for annotations.
 file_put_contents($import_json_annotation_dates_file, json_encode($annotations_json_dates));
+// Store: array of all annotations processed.
 file_put_contents($import_json_annotations_file, json_encode($annotations_json));
+// Store: a simple list of all annotation ids.
 file_put_contents($import_json_file, json_encode($import_json));
+// Store: annotations ids grouped by username.
 file_put_contents($import_json_ids_file, json_encode(array_reverse($import_json_ids, true)));
