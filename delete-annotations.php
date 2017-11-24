@@ -47,7 +47,7 @@ foreach ($import_json_ids as $username => $ids) {
     $jwt = fetch_jwt($username, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt);
     $api_token = swap_jwt_for_api_token($jwt, $hypothesis_api);
     if (empty($ids)) {
-        $ids = gather_annotation_ids_for_username($username, $hypothesis_api, $api_token, $hypothesis_group);
+        $ids = gather_annotation_ids_for_username($username, $hypothesis_api, $hypothesis_group);
     }
     foreach ($ids as $id) {
         try {

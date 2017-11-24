@@ -39,22 +39,14 @@ function swap_jwt_for_api_token($jwt, $hypothesis_api) {
 /**
  * @return array
  */
-function gather_annotation_ids_for_username($username, $hypothesis_api, $api_token, $hypothesis_group) {
+function gather_annotation_ids_for_username($username, $hypothesis_api, $hypothesis_group) {
     $client = new Client();
-    $response = $client->request('GET', $hypothesis_api.'search?limit=1&group='.$hypothesis_group.'&user='.$username, [
-        'headers' => [
-            'Authorization' => 'Bearer '.$api_token,
-        ],
-    ]);
+    $response = $client->request('GET', $hypothesis_api.'search?limit=1&group='.$hypothesis_group.'&user='.$username);
     $ids = [];
     $data = json_decode((string) $response->getBody());
     $limit = 100;
     for ($offset = 0; $offset <= $data->total; $offset += $limit) {
-        $response = $client->request('GET', $hypothesis_api.'search?limit='.$limit.'&offset='.$offset.'&group='.$hypothesis_group.'&user='.$username, [
-            'headers' => [
-                'Authorization' => 'Bearer '.$api_token,
-            ],
-        ]);
+        $response = $client->request('GET', $hypothesis_api.'search?limit='.$limit.'&offset='.$offset.'&group='.$hypothesis_group.'&user='.$username);
         $list = json_decode((string) $response->getBody());
         foreach ($list->rows as $item) {
             $ids[] = $item->id;
@@ -165,6 +157,7 @@ function post_annotations($items, $posted, $group, $hypothesis_authority, $hypot
         $missing = [];
     }
     if (!empty($missing)) {
+        // @todo - elife - nlisgo - we may need to remove the missing id's from the entries in post_annotations_import_id_map, post_annotations_import_json etc.
         debug(sprintf('- %d missing ids, retrying.', count($missing)));
         post_annotations_import_json_missing($missing);
         post_annotations(array_values($missing), $posted, $group, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api, $hypothesis_group, $jwts, $api_tokens);
@@ -174,6 +167,7 @@ function post_annotations($items, $posted, $group, $hypothesis_authority, $hypot
 }
 
 function detect_missing_ids($sent, $hypothesis_api, $hypothesis_group) {
+    // Wait for a few seconds to ensure that the GET request has a chance to succeed.
     sleep(3);
     $missing = $sent;
     $client = new Client();
