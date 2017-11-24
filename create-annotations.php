@@ -1,7 +1,6 @@
 #!/usr/bin/php
 <?php
 
-use GuzzleHttp\Client;
 use Symfony\Component\Filesystem\Filesystem;
 
 require(__DIR__.'/vendor/autoload.php');
