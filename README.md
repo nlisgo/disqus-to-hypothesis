@@ -71,6 +71,7 @@ The create-annotations fixtures can be found in the `./import/` folder.
     1. `./import/import-failures.json` - capture the failures to create annotations.
     1. `./import/import-references.json` - the parents of each annotation processed.
     1. `./import/import-missing.json` - capture the annotations that were missing after appearing to be created.
+    1. `./import/import-id-map.json` - source id to destination id map.
 
 ## Delete annotations on Hypothesis publisher group. (`./delete-annotations.php`)
 

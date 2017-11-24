@@ -96,9 +96,10 @@ function debug($output, $interupt = false) {
     }
 }
 
-function post_annotations($items, $group, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api, $hypothesis_group, &$jwts, &$api_tokens) {
+function post_annotations($items, $posted, $group, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api, $hypothesis_group, &$jwts, &$api_tokens) {
     $co = 0;
     $sent = [];
+    $pre_posted = 0;
     foreach ($items as $item) {
         $co++;
         $item->creator = preg_replace('~(acct:disqus)\-(import)~', '$1_$2', $item->creator);
@@ -137,12 +138,17 @@ function post_annotations($items, $group, $hypothesis_authority, $hypothesis_cli
         ];
 
         $error = [];
-        $id = post_annotation($annotation, $hypothesis_api, $api_token, $error);
+        if (!empty($posted) && !empty($posted->{$item->id})) {
+            $id = $posted->{$item->id};
+            $pre_posted++;
+        } else {
+            $id = post_annotation($annotation, $hypothesis_api, $api_token, $error);
+        }
 
         if (!empty($id)) {
             debug(sprintf('%d of %d (in group %d) posted (%s:%s).', $co, count($items), $group, $item->id, $id));
             $sent[$id] = $item;
-            post_annotations_references($item->target, $id);
+            post_annotations_import_id_map($item->id, $id);
             post_annotations_import_json($id);
             post_annotations_import_json_ids($username, $id);
             post_annotations_import_json_dates($id, $item->created, $item->modified);
@@ -151,12 +157,17 @@ function post_annotations($items, $group, $hypothesis_authority, $hypothesis_cli
             post_annotations_import_json_failures(['annotation' => $annotation] + $error);
         }
     }
+
     debug(sprintf('Detecting missing ids in group %d.', $group));
-    $missing = detect_missing_ids($sent, $hypothesis_api, $hypothesis_group);
+    if ($pre_posted !== count($items)) {
+        $missing = detect_missing_ids($sent, $hypothesis_api, $hypothesis_group);
+    } else {
+        $missing = [];
+    }
     if (!empty($missing)) {
         debug(sprintf('- %d missing ids, retrying.', count($missing)));
         post_annotations_import_json_missing($missing);
-        post_annotations(array_values($missing), $group, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api, $hypothesis_group, $jwts, $api_tokens);
+        post_annotations(array_values($missing), $posted, $group, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api, $hypothesis_group, $jwts, $api_tokens);
     } else {
         debug('- 0 missing ids.');
     }
@@ -184,12 +195,12 @@ function detect_missing_ids($sent, $hypothesis_api, $hypothesis_group) {
     return $missing;
 }
 
-function post_annotations_references($target = null, $id = null) {
-    static $references = [];
-    if (is_null($target) && is_null($id)) {
-        return $references;
+function post_annotations_import_id_map($source_id = null, $id = null) {
+    static $map = [];
+    if (is_null($source_id) && is_null($id)) {
+        return $map;
     } else {
-        $references[$target] = $id;
+        $map[$source_id] = $id;
     }
 }
 

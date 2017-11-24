@@ -31,6 +31,7 @@ $delete_folder = __DIR__.'/delete/';
 $delete_json_file = $delete_folder.'/delete.json';
 $import_folder = __DIR__.'/import/';
 $import_json_ids_file = $import_folder.'/import-ids.json';
+$import_json_id_map = $import_folder.'/import-id-map.json';
 
 if (!(new Filesystem)->exists($import_json_ids_file)) {
     throw new Exception('Missing import file: '.$import_json_ids_file);
@@ -62,6 +63,11 @@ foreach ($import_json_ids as $username => $ids) {
         }
         $delete_json[$username][] = $id;
     }
+}
+
+// We must delete the id map file after deletions.
+if ((new Filesystem)->exists($import_json_id_map)) {
+    (new Filesystem)->remove($import_json_id_map);
 }
 
 if ((new Filesystem)->exists($delete_folder)) {

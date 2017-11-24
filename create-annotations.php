@@ -36,11 +36,13 @@ $export_json_tree_file = $export_folder.'/export-tree.json';
 $import_folder = __DIR__.'/import/';
 $import_json_file = $import_folder.'/import.json';
 $import_json_references_file = $import_folder.'/import-references.json';
+$import_json_id_map = $import_folder.'/import-id-map.json';
 $import_json_annotations_file = $import_folder.'/import-annotations.json';
 $import_json_annotation_dates_file = $import_folder.'/import-annotation-dates.json';
 $import_json_ids_file = $import_folder.'/import-ids.json';
 $import_json_failures_file = $import_folder.'/import-failures.json';
 $import_json_missing_file = $import_folder.'/import-missing.json';
+$skip_posted = true;
 
 if (!(new Filesystem)->exists($export_json_clean_file)) {
     throw new Exception('Missing export file: '.$export_json_clean_file);
@@ -58,11 +60,16 @@ $import_json = [];
 $import_json_ids = [];
 $jwts = [];
 $api_tokens = [];
-$references = [];
+$id_map_json = [];
 $annotations_json = [];
 $annotations_json_dates = [];
 $failures_json = [];
 $missing_json = [];
+$posted_json = [];
+
+if ($skip_posted && (new Filesystem)->exists($import_json_id_map)) {
+    $posted_json = json_decode(file_get_contents($import_json_id_map));
+}
 
 $export_json = json_decode(file_get_contents($export_json_clean_file));
 $export_tree = json_decode(file_get_contents($export_json_tree_file));
@@ -102,11 +109,11 @@ $co = 0;
 for ($i = 0; $i < $total; $i += $group_limit) {
     $co++;
     $items = array_slice($export_json_asc, $i, $group_size);
-    post_annotations($items, $co, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api, $hypothesis_group, $jwts, $api_tokens);
-    debug(sprintf('Posted %d - %d of %d (in all groups)', $i+1, $i+count($items), $total));
+    post_annotations($items, $posted_json, $co, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api, $hypothesis_group, $jwts, $api_tokens);
+    debug(sprintf('Posted %d - %d of %d (in all groups).', $i+1, $i+count($items), $total));
 }
 
-$references = post_annotations_references();
+$id_map_json = post_annotations_import_id_map();
 $import_json = post_annotations_import_json();
 $import_json_ids = post_annotations_import_json_ids();
 $annotations_json_dates = post_annotations_import_json_dates();
@@ -137,3 +144,5 @@ file_put_contents($import_json_annotations_file, json_encode($annotations_json))
 file_put_contents($import_json_file, json_encode($import_json));
 // Store: annotations ids grouped by username.
 file_put_contents($import_json_ids_file, json_encode(array_reverse($import_json_ids, true)));
+// Store: source id to destination id map.
+file_put_contents($import_json_id_map, json_encode($id_map_json));
