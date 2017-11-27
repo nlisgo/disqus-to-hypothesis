@@ -35,6 +35,10 @@ As part of the migration you may want to move all Disqus hosted media to a new l
 
 ### Artifacts of `./export.php`
 
+* Persistent (these will remain each time `./export.php` is run, they must be removed if we want them to be re-generated):
+    1. `./disqus-api.json` - results of disqus list queries stored to file, so we can re-run subsequent operations quickly.
+    1. `./disqus-export.json` - conversion from XML to import structure preserved in file.
+    1. `./target-map.json` - array of target url keys with effective url values.
 * Main:
     1. `./export/media/*` - disqus media files to be uploaded to alternative location.
     1. `./export/emails.json` - email and display name pairs for profile import.
