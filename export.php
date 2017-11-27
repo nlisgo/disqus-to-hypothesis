@@ -5,7 +5,6 @@ require(__DIR__.'/vendor/autoload.php');
 
 use GuzzleHttp\Client;
 use GuzzleHttp\TransferStats;
-use League\HTMLToMarkdown\HtmlConverter;
 use Symfony\Component\Filesystem\Filesystem;
 
 error_reporting(E_ERROR | E_PARSE);
@@ -176,27 +175,7 @@ foreach ($list as $i => $post) {
         // This is not expected but is used as a marker in case no email is found.
         $list[$i]->author->email = '**empty**';
     }
-    $converter = new HtmlConverter();
-    $markdown = $post->raw_message;
-    // Handle a couple of known instances of <n> used to display a formula.
-    $markdown = preg_replace('~<n>~', '&lt;n&gt;', $markdown);
-    // Handle instances of < that are not html and should be converted to &lt;.
-    $markdown = preg_replace('~<(?!a|p|strong|em|br|iframe|b|i|u|script)([^\/])~', '&lt;$1', $markdown);
-    // Preserve linebreaks <br> and \n, so they can be reinstated after markdown conversion.
-    $markdown = preg_replace('~<br/?>~', $unused_char_2, $markdown);
-    $markdown = preg_replace('~(\\n){2,}~', $unused_char_1, $markdown);
-    $markdown = preg_replace('~(\\n)~', $unused_char_2, $markdown);
-    // Where a url is repeated, remove the 2nd instance.
-    $markdown = preg_replace('~(http[^\s]+)[ ]+\1~', '$1', $markdown);
-    // Convert to markdown.
-    $markdown = $converter->convert($markdown);
-    // Reinstate linebreaks.
-    $markdown = str_replace($unused_char_1, PHP_EOL.PHP_EOL, $markdown);
-    $markdown = str_replace($unused_char_2, PHP_EOL, $markdown);
-    // Remove space at the beginning of a line.
-    $markdown = preg_replace('~(^|\\n)[ ]+~', '$1', $markdown);
-    // Detect and standardise list ordinals.
-    $markdown = preg_replace('~(^|\\n)([a-z0-9]+)(\\\){0,}(\\)|\.) ~', '$1($2) ', $markdown);
+    $markdown = convert_raw_message_to_markdown($post->raw_message);
     // Append attached media files to the end of message.
     if (!empty($post->media)) {
         $co = 0;
@@ -231,11 +210,7 @@ if ($media_new_swap) {
     }, array_values($media_files));
     $export_json_flat = preg_replace($media_search, $media_replace, $export_json_flat);
 }
-// Convert url's to markdown links and link images to their files.
-$export_json_flat = str_replace('\n', $unused_char_2, $export_json_flat);
-$export_json_flat = preg_replace('~( |\\t|'.$unused_char_2.'|[^:]\"|\"value\":\")(https?:\\\/\\\/[^\s\"'.$unused_char_2.']+)~', '$1[$2]($2)', $export_json_flat);
-$export_json_flat = preg_replace('~\[(https?:\\\/\\\/[^\]]+\.)(jpg|jpeg|png|gif)\]~', '[![]($1$2)]', $export_json_flat);
-$export_json_flat = str_replace($unused_char_2, '\n', $export_json_flat);
+$export_json_flat = convert_urls_to_markdown_links($export_json_flat);
 $export_json = json_decode($export_json_flat);
 
 foreach ($export_json as $k => $item) {

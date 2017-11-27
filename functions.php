@@ -2,6 +2,51 @@
 
 use Firebase\JWT\JWT;
 use GuzzleHttp\Client;
+use League\HTMLToMarkdown\HtmlConverter;
+
+/**
+ * @return string
+ */
+function convert_raw_message_to_markdown($raw_message) {
+    $newline_placeholder = '∞';
+    $linebreak_placeholder = 'ª';
+    $converter = new HtmlConverter();
+    $markdown = $raw_message;
+    // Handle a couple of known instances of <n> used to display a formula.
+    $markdown = preg_replace('~<n>~', '&lt;n&gt;', $markdown);
+    // Handle instances of < that are not html and should be converted to &lt;.
+    $markdown = preg_replace('~<(?!a|p|strong|em|br|iframe|b|i|u|script)([^\/])~', '&lt;$1', $markdown);
+    // Preserve linebreaks <br> and \n, so they can be reinstated after markdown conversion.
+    $markdown = preg_replace('~<br/?>~', $linebreak_placeholder, $markdown);
+    $markdown = preg_replace('~(\\n){2,}~', $newline_placeholder, $markdown);
+    $markdown = preg_replace('~(\\n)~', $linebreak_placeholder, $markdown);
+    // Where a url is repeated, remove the 2nd instance.
+    $markdown = preg_replace('~(http[^\s]+)[ ]+\1~', '$1', $markdown);
+    // Convert to markdown.
+    $markdown = $converter->convert($markdown);
+    // Reinstate linebreaks.
+    $markdown = str_replace($newline_placeholder, PHP_EOL.PHP_EOL, $markdown);
+    $markdown = str_replace($linebreak_placeholder, PHP_EOL, $markdown);
+    // Remove space at the beginning of a line.
+    $markdown = preg_replace('~(^|\\n)[ ]+~', '$1', $markdown);
+    // Detect and standardise list ordinals.
+    $markdown = preg_replace('~(^|\\n)([a-z0-9]+)(\\\){0,}(\\)|\.) ~', '$1($2) ', $markdown);
+
+    return $markdown;
+}
+
+function convert_urls_to_markdown_links($input) {
+    $linebreak_placeholder = 'ª';
+    // Preserve linebreaks as we perform url conversions.
+    $output = str_replace('\n', $linebreak_placeholder, $input);
+    // Convert url's to markdown links.
+    $output = preg_replace('~( |\\t|'.$linebreak_placeholder.'|[^:]\"|\"value\":\")(https?:\\\/\\\/[^\s\"'.$linebreak_placeholder.']+)~', '$1[$2]($2)', $output);
+    // Link images to their files.
+    $output = preg_replace('~\[(https?:\\\/\\\/[^\]]+\.)(jpg|jpeg|png|gif)\]~', '[![]($1$2)]', $output);
+    $output = str_replace($linebreak_placeholder, '\n', $output);
+
+    return $output;
+}
 
 /**
  * @return string
