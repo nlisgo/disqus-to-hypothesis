@@ -226,8 +226,9 @@ function post_annotations_import_id_map($source_id = null, $id = null, $remove =
 function post_annotations_import_json($id = null, $remove = false) {
     static $import_json = [];
     if ($remove) {
-        if (!is_null($id)) {
-            unset($import_json[$id]);
+        if ($key = array_search($id, $import_json)) {
+            unset($import_json[$key]);
+            $import_json = array_values($import_json);
         }
     } else {
         if (is_null($id)) {
