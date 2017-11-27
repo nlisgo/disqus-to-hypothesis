@@ -10,6 +10,7 @@ before_install:
   - composer global require "hirak/prestissimo:^0.3"
 
 install:
+  - cp $TRAVIS_BUILD_DIR/example.config.php $TRAVIS_BUILD_DIR/config.php
   - composer --verbose install
 
 script:
