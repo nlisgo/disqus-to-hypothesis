@@ -136,7 +136,7 @@ file_put_contents($import_json_failures_file, json_encode($failures_json));
 // Store: the parents of each annotation processed.
 file_put_contents($import_json_references_file, json_encode($export_references));
 // Store: primary output for Hypothesis to set correct dates for annotations.
-file_put_contents($import_json_annotation_dates_file, json_encode($annotations_json_dates));
+file_put_contents($import_json_annotation_dates_file, json_encode(array_values($annotations_json_dates)));
 // Store: array of all annotations processed.
 file_put_contents($import_json_annotations_file, json_encode($annotations_json));
 // Store: a simple list of all annotation ids.
