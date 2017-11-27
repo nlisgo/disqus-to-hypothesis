@@ -2,110 +2,41 @@
 
 namespace tests\eLife;
 
-use DateTimeImmutable;
-use Error;
 use PHPUnit\Framework\TestCase;
 
 class exportTest extends TestCase
 {
-    /** @var DisqusItem[] */
-    private $export = [];
-
     /**
-     * @before
+     * @test
+     * @dataProvider providerLineBreaks
      */
-    public function load_export_files()
+    public function it_will_preserve_line_breaks($raw_message, $expected)
     {
-        $items = \GuzzleHttp\json_decode(file_get_contents(__DIR__.'/../export/export.json'), true);
-        foreach ($items as $item) {
-            $this->export[(int) preg_replace('/^disqus\-import:/', '', $item['id'])] = new DisqusItem($item);
-        }
+        $this->assertContains($expected, convert_raw_message_to_markdown($raw_message));
+    }
 
-        ksort($this->export);
+    public function providerLineBreaks()
+    {
+        yield 'single line-break' => [
+            "<strong>Comment on Version 2</strong>\nThe following sentence and citation to Bio-protocol (Müller and Münch, 2016) was added to the  Materials and methods:\n\nFinally, we tested whether the molecular tweezer inhibited semen-mediated infection enhancement, as described (Müller and Münch, 2016).\n\nThe following citation has been added to the Reference list:\nMüller, JA and Münch, J. (2016). Reporter assay for semen-mediated enhancement of HIV-1 infection. Bio-protocol 6(14): e1871. http://dx.doi.org/10.21769/BioProtoc.1871",
+            "**Comment on Version 2**\nThe following sentence and citation",
+        ];
     }
 
     /**
      * @test
+     * @dataProvider providerLT
      */
-    public function it_is_not_empty()
+    public function it_can_handle_lt($raw_message, $expected)
     {
-        $this->assertNotEmpty($this->export);
+        $this->assertContains($expected, convert_raw_message_to_markdown($raw_message));
     }
 
-    /**
-     * @test
-     */
-    public function it_has_a_first_entry()
+    public function providerLT()
     {
-        $expected = 'I wish the team good luck in making important discoveries and reporting them back to us.';
-
-        $actual = reset($this->export);
-        $this->assertEquals($expected, $actual->getBody());
-    }
-
-    /**
-     * @test
-     */
-    public function it_will_preserve_line_breaks()
-    {
-        $actual = $this->export[3300124537];
-        $this->assertStringStartsWith("**Comment on Version 2**\nThe following sentence and citation", $actual->getBody());
-    }
-
-    /**
-     * @test
-     */
-    public function it_can_handle_lt()
-    {
-        $actual = $this->export[2773314626];
-        $this->assertContains('We have used splicingcode table of <230,000 introns', $actual->getBody());
-    }
-}
-
-/**
- * @method string getCreated()
- * @method DateTimeImmutable getCreatedDate()
- * @method string getCreator()
- * @method string getEmail()
- * @method string getModified()
- * @method DateTimeImmutable getModifiedDate()
- * @method string getMotivation()
- * @method string getName()
- * @method string getTarget()
- * @method string getType()
- */
-class DisqusItem
-{
-    private $item;
-
-    public function __construct($item)
-    {
-        $this->item = $item;
-    }
-
-    public function getContext()
-    {
-        return $this->item['@context'];
-    }
-
-    public function getBody()
-    {
-        return $this->item['body'][0]['value'];
-    }
-
-    public function __call($name, $arguments)
-    {
-        if (preg_match('/^get(?P<key>[A-Z][a-z]*)(?P<date>Date)?$/', $name, $match)) {
-            $key = strtolower($match['key']);
-            if (isset($this->item[$key])) {
-                $value = $this->item[$key];
-                if (!empty($match['date'])) {
-                    $value = new DateTimeImmutable($value);
-                }
-                return $value;
-            }
-        }
-
-        throw new Error(sprintf('Call to undefined method %s::%s()', self::class, $name));
+        yield 'just before integer' => [
+            "That data qualities are excellent.  \n\nWe have used splicingcode table of <230,000 introns, which are 10-20% of the estimated human introns,  to analyze their datasets. We have identified about 4,500 fusion transcripts, from which the numbers of highly-recurrent fusion  have been identified.  One of the most intriguing loci is at the chromosome  15q24.  It has read-through fusion transcripts of SH3GL3|ADAMTSL3 and actively-inversion of ADAMTSL3|SH3GL3 if it is a somatic mutation,         or alternative-spliced if it is germline-inherited. We have identified 17 ADAMTSL3|SH3GL3 isoforms or inversion types.  They are also detected in some of their controls.  The following fusion transcripts in the table are some of the highly-recurrent fusion transcripts. If you are interested in some of these data, you can go to http://splicingcodes.com to request data described in detail. ",
+            "We have used splicingcode table of <230,000 introns",
+        ];
     }
 }
