@@ -1,0 +1,17 @@
+language: php
+
+php:
+  - 7.1
+
+sudo: false
+
+before_install:
+  - composer --verbose self-update
+  - composer global require "hirak/prestissimo:^0.3"
+
+install:
+  - composer --verbose install
+
+script:
+  - cd $TRAVIS_BUILD_DIR
+  - $TRAVIS_BUILD_DIR/vendor/bin/phpunit -c $TRAVIS_BUILD_DIR/phpunit.xml.dist
