@@ -4,7 +4,7 @@ namespace tests\eLife;
 
 use PHPUnit\Framework\TestCase;
 
-class exportTest extends TestCase
+class messageConversionTest extends TestCase
 {
     /**
      * @test
