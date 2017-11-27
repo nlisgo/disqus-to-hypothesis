@@ -35,6 +35,9 @@ function convert_raw_message_to_markdown($raw_message) {
     return $markdown;
 }
 
+/**
+ * @return string
+ */
 function convert_urls_to_markdown_links($input) {
     $linebreak_placeholder = 'ª';
     // Preserve linebreaks as we perform url conversions.
