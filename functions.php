@@ -88,7 +88,7 @@ function debug($output, $interupt = false) {
     }
 }
 
-function post_annotations($items, $posted, $group, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api, $hypothesis_group, &$jwts, &$api_tokens) {
+function post_annotations($items, $posted, $group, $export_references, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api, $hypothesis_group, &$jwts, &$api_tokens) {
     $co = 0;
     $sent = [];
     $pre_posted = 0;
@@ -105,12 +105,17 @@ function post_annotations($items, $posted, $group, $hypothesis_authority, $hypot
         }
         $api_token = $api_tokens[$jwt];
         $refs = [];
-        if (!empty($export_references[$item->target])) {
-            foreach ($export_references[$item->target] as $target) {
-                if (!empty($references[$target])) {
-                    $refs[] = $references[$target];
+        if (!empty($export_references[$item->id])) {
+            $references = $export_references[$item->id];
+            $target = reset($references);
+            foreach ($references as $ref) {
+                $ref_dest_id = post_annotations_import_id_map($ref);
+                if (!empty($ref_dest_id)) {
+                    $refs[] = $ref_dest_id;
                 }
             }
+        } else {
+            $target = false;
         }
         $annotation = [
             'group' => $hypothesis_group,
@@ -123,10 +128,10 @@ function post_annotations($items, $posted, $group, $hypothesis_authority, $hypot
             'references' => $refs,
             'tags' => [],
             'target' => [
-                ['source' => $item->target],
+                ['source' => $target],
             ],
             'text' => $item->body[0]->value,
-            'uri' => $item->target,
+            'uri' => $target,
         ];
 
         $error = [];
@@ -137,15 +142,18 @@ function post_annotations($items, $posted, $group, $hypothesis_authority, $hypot
             $id = post_annotation($annotation, $hypothesis_api, $api_token, $error);
         }
 
-        if (!empty($id)) {
+        if ($target !== false && !empty($id)) {
             debug(sprintf('%d of %d (in group %d) posted (%s:%s).', $co, count($items), $group, $item->id, $id));
             $sent[$id] = $item;
             post_annotations_import_id_map($item->id, $id);
             post_annotations_import_json($id);
             post_annotations_import_json_ids($username, $id);
             post_annotations_import_json_dates($id, $item->created, $item->modified);
-            post_annotations_import_json_annotations($annotation);
-        } elseif (!empty($error)) {
+            post_annotations_import_json_annotations($id, $annotation);
+        } elseif ($target !== false || !empty($error)) {
+            if (empty($error)) {
+                $error = ['target' => false];
+            }
             post_annotations_import_json_failures(['annotation' => $annotation] + $error);
         }
     }
@@ -157,10 +165,17 @@ function post_annotations($items, $posted, $group, $hypothesis_authority, $hypot
         $missing = [];
     }
     if (!empty($missing)) {
-        // @todo - elife - nlisgo - we may need to remove the missing id's from the entries in post_annotations_import_id_map, post_annotations_import_json etc.
+        // Remove missing id's from output records.
+        foreach (array_keys($missing) as $missing_id) {
+            post_annotations_import_id_map(null, $missing_id, true);
+            post_annotations_import_json($missing_id, true);
+            post_annotations_import_json_ids(null, $missing_id, true);
+            post_annotations_import_json_dates($missing_id, null, null, true);
+            post_annotations_import_json_annotations($missing_id, null, true);
+        }
         debug(sprintf('- %d missing ids, retrying.', count($missing)));
         post_annotations_import_json_missing($missing);
-        post_annotations(array_values($missing), $posted, $group, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api, $hypothesis_group, $jwts, $api_tokens);
+        post_annotations(array_values($missing), $posted, $group, $export_references, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api, $hypothesis_group, $jwts, $api_tokens);
     } else {
         debug('- 0 missing ids.');
     }
@@ -189,52 +204,88 @@ function detect_missing_ids($sent, $hypothesis_api, $hypothesis_group) {
     return $missing;
 }
 
-function post_annotations_import_id_map($source_id = null, $id = null) {
+function post_annotations_import_id_map($source_id = null, $id = null, $remove = false) {
     static $map = [];
-    if (is_null($source_id) && is_null($id)) {
-        return $map;
+    if ($remove) {
+        if (!is_null($source_id) && isset($map[$source_id])) {
+            unset($map[$source_id]);
+        } elseif (!is_null($id) && $key = array_search($id, $map)) {
+            unset($map[$key]);
+        }
     } else {
-        $map[$source_id] = $id;
+        if (is_null($source_id) && is_null($id)) {
+            return $map;
+        } elseif (!is_null($source_id) && isset($map[$source_id])) {
+            return $map[$source_id];
+        } else {
+            $map[$source_id] = $id;
+        }
     }
 }
 
-function post_annotations_import_json($id = null) {
+function post_annotations_import_json($id = null, $remove = false) {
     static $import_json = [];
-    if (is_null($id)) {
-        return $import_json;
+    if ($remove) {
+        if (!is_null($id)) {
+            unset($import_json[$id]);
+        }
     } else {
-        $import_json[] = $id;
+        if (is_null($id)) {
+            return $import_json;
+        } else {
+            $import_json[] = $id;
+        }
     }
 }
 
-function post_annotations_import_json_ids($username = null, $id = null) {
+function post_annotations_import_json_ids($username = null, $id = null, $remove = false) {
     static $import_json_ids = [];
-    if (is_null($username) && is_null($id)) {
-        return $import_json_ids;
+    if ($remove) {
+        if (!is_null($username) && isset($import_json_ids[$username])) {
+            unset($import_json_ids[$username]);
+        } elseif (!is_null($id) && $key = array_search($id, $import_json_ids)) {
+            unset($import_json_ids[$key]);
+        }
     } else {
-        $import_json_ids[$username][] = $id;
+        if (is_null($username) && is_null($id)) {
+            return $import_json_ids;
+        } else {
+            $import_json_ids[$username][] = $id;
+        }
     }
 }
 
-function post_annotations_import_json_dates($id = null, $created = null, $modified = null) {
+function post_annotations_import_json_dates($id = null, $created = null, $modified = null, $remove = false) {
     static $import_json_dates = [];
-    if (is_null($id) && is_null($created) && is_null($modified)) {
-        return $import_json_dates;
+    if ($remove) {
+        if (!is_null($id) && isset($import_json_dates[$id])) {
+            unset($import_json_dates[$id]);
+        }
     } else {
-        $import_json_dates[] = [
-            'imported_id' => $id,
-            'created' => $created,
-            'modified' => $modified,
-        ];
+        if (is_null($id) && is_null($created) && is_null($modified)) {
+            return $import_json_dates;
+        } else {
+            $import_json_dates[$id] = [
+                'imported_id' => $id,
+                'created' => $created,
+                'modified' => $modified,
+            ];
+        }
     }
 }
 
-function post_annotations_import_json_annotations($annotation = null) {
+function post_annotations_import_json_annotations($id = null, $annotation = null, $remove = false) {
     static $annotations = [];
-    if (is_null($annotation)) {
-        return $annotations;
+    if ($remove) {
+        if (!is_null($id) && isset($annotations[$id])) {
+            unset($annotations[$id]);
+        }
     } else {
-        $annotations[] = $annotation;
+        if (is_null($id) && is_null($annotation)) {
+            return $annotations;
+        } else {
+            $annotations[$id] = $annotation;
+        }
     }
 }
 

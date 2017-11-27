@@ -49,7 +49,9 @@ foreach ($import_json_ids as $username => $ids) {
     if (empty($ids)) {
         $ids = gather_annotation_ids_for_username($username, $hypothesis_api, $hypothesis_group);
     }
+    $co = 0;
     foreach ($ids as $id) {
+        $co++;
         try {
             $response = $client->request('DELETE', $hypothesis_api.'annotations/'.$id, [
                 'headers' => [
@@ -62,6 +64,7 @@ foreach ($import_json_ids as $username => $ids) {
             }
         }
         $delete_json[$username][] = $id;
+        debug(sprintf('%d of %d deleted for "%s" (%s).', $co, count($ids), $username, $id));
     }
 }
 

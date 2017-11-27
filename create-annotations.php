@@ -108,7 +108,7 @@ $co = 0;
 for ($i = 0; $i < $total; $i += $group_limit) {
     $co++;
     $items = array_slice($export_json_asc, $i, $group_size);
-    post_annotations($items, $posted_json, $co, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api, $hypothesis_group, $jwts, $api_tokens);
+    post_annotations($items, $posted_json, $co, $export_references, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api, $hypothesis_group, $jwts, $api_tokens);
     debug(sprintf('Posted %d - %d of %d (in all groups).', $i+1, $i+count($items), $total));
 }
 
