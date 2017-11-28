@@ -2,6 +2,7 @@
 
 use Firebase\JWT\JWT;
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\ClientException;
 use League\HTMLToMarkdown\HtmlConverter;
 
 /**
@@ -106,7 +107,7 @@ function gather_annotation_ids_for_username($username, $hypothesis_api, $hypothe
 /**
  * @return string|bool
  */
-function post_annotation($annotation, $hypothesis_api, $api_token, &$error = []) {
+function post_annotation($annotation, $hypothesis_api, $api_token, &$error = [], $attempt = 1) {
     $client = new Client();
     try {
         $response = $client->request('POST', $hypothesis_api.'annotations', [
@@ -116,11 +117,65 @@ function post_annotation($annotation, $hypothesis_api, $api_token, &$error = [])
             'body' => json_encode($annotation),
         ]);
         $data = json_decode((string) $response->getBody());
-        return $data->id;
+        $result = get_annotation($data->id, $hypothesis_api, $attempt);
+        if ($result === false) {
+            debug(sprintf('Failed to verify that annotation exists on attempt %d (%s).', $attempt, $data->id));
+            $failures = get_annotation_failures($data->id);
+            if (!empty($failures)) {
+                $failure = end($failures);
+                if (isset($failure['exception']) && $failure['exception'] instanceof ClientException && $failure['exception']->getResponse()->getStatusCode() == 404) {
+                    debug('Re-attempting to post annotation.');
+                    return post_annotation($annotation, $hypothesis_api, $api_token, $error, $attempt+1);
+                }
+            }
+        } else {
+            debug(sprintf('Successfully verified annotation on attempt %d (%s).', $attempt, $result->id));
+            return $result->id;
+        }
     } catch (Exception $e) {
         $error = ['exception' => $e->getMessage()];
         return false;
     }
+}
+
+function get_annotation($id, $hypothesis_api, $attempt = 1) {
+    $client = new Client();
+    try {
+        $response = $client->request('GET', $hypothesis_api.'annotations/'.$id);
+        $data = json_decode((string) $response->getBody());
+        get_annotation_results($id, $data, $attempt);
+        return $data;
+    } catch (Exception $e) {
+        get_annotation_failures($id, ['exception' => $e->getMessage(), 'attempt' => $attempt]);
+    }
+    return false;
+}
+
+function get_annotation_results($id = null, $result = null, $attempt = 1) {
+    static $results = [];
+    if (is_null($id) && is_null($result)) {
+        return $results;
+    } elseif (!is_null($id) && is_null($result)) {
+        return (!empty($results[$id])) ? $results[$id] : [];
+    } elseif (!is_null($id) && !is_null($result)) {
+        $result->attempt = $attempt;
+        $results[$id][] = $result;
+    }
+
+    return false;
+}
+
+function get_annotation_failures($id = null, $failure = null) {
+    static $failures = [];
+    if (is_null($id) && is_null($failure)) {
+        return $failures;
+    } elseif (!is_null($id) && is_null($failure)) {
+        return (!empty($failures[$id])) ? $failures[$id] : [];
+    } elseif (!is_null($id) && !is_null($failure)) {
+        $failures[$id][] = $failure;
+    }
+
+    return false;
 }
 
 /**
@@ -139,7 +194,6 @@ function debug($output, $interupt = false) {
 function post_annotations($items, $posted, $group, $export_references, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api, $hypothesis_group, &$jwts, &$api_tokens) {
     $co = 0;
     $sent = [];
-    $pre_posted = 0;
     foreach ($items as $item) {
         $co++;
         $item->creator = preg_replace('~(acct:disqus)\-(import)~', '$1_$2', $item->creator);
@@ -185,7 +239,6 @@ function post_annotations($items, $posted, $group, $export_references, $hypothes
         $error = [];
         if (!empty($posted) && !empty($posted->{$item->id})) {
             $id = $posted->{$item->id};
-            $pre_posted++;
         } else {
             $id = post_annotation($annotation, $hypothesis_api, $api_token, $error);
         }
@@ -205,51 +258,6 @@ function post_annotations($items, $posted, $group, $export_references, $hypothes
             post_annotations_import_json_failures(['annotation' => $annotation] + $error);
         }
     }
-
-    debug(sprintf('Detecting missing ids in group %d.', $group));
-    if ($pre_posted !== count($items)) {
-        $missing = detect_missing_ids($sent, $hypothesis_api, $hypothesis_group);
-    } else {
-        $missing = [];
-    }
-    if (!empty($missing)) {
-        // Remove missing id's from output records.
-        foreach (array_keys($missing) as $missing_id) {
-            post_annotations_import_id_map(null, $missing_id, true);
-            post_annotations_import_json($missing_id, true);
-            post_annotations_import_json_ids(null, $missing_id, true);
-            post_annotations_import_json_dates($missing_id, null, null, true);
-            post_annotations_import_json_annotations($missing_id, null, true);
-        }
-        debug(sprintf('- %d missing ids, retrying.', count($missing)));
-        post_annotations_import_json_missing($missing);
-        post_annotations(array_values($missing), $posted, $group, $export_references, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api, $hypothesis_group, $jwts, $api_tokens);
-    } else {
-        debug('- 0 missing ids.');
-    }
-}
-
-function detect_missing_ids($sent, $hypothesis_api, $hypothesis_group) {
-    // Wait for a few seconds to ensure that the GET request has a chance to succeed.
-    sleep(3);
-    $missing = $sent;
-    $client = new Client();
-    $response = $client->request('GET', $hypothesis_api.'search?limit=1&group='.$hypothesis_group);
-    $data = json_decode((string) $response->getBody());
-    $limit = 100;
-    for ($offset = 0; $offset <= $data->total; $offset += $limit) {
-        $response = $client->request('GET', $hypothesis_api.'search?limit='.$limit.'&offset='.$offset.'&group='.$hypothesis_group);
-        $list = json_decode((string) $response->getBody());
-        foreach ($list->rows as $item) {
-            if (isset($missing[$item->id])) {
-                unset($missing[$item->id]);
-                if (empty($missing)) {
-                    return [];
-                }
-            }
-        }
-    }
-    return $missing;
 }
 
 function post_annotations_import_id_map($source_id = null, $id = null, $remove = false) {
@@ -335,15 +343,6 @@ function post_annotations_import_json_annotations($id = null, $annotation = null
         } else {
             $annotations[$id] = $annotation;
         }
-    }
-}
-
-function post_annotations_import_json_missing($missing = null) {
-    static $missings = [];
-    if (is_null($missing)) {
-        return $missings;
-    } else {
-        $missings[] = $missing;
     }
 }
 

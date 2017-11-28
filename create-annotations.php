@@ -107,7 +107,7 @@ $group_limit = ($group_size > 0) ? $group_size : $total;
 $co = 0;
 for ($i = 0; $i < $total; $i += $group_limit) {
     $co++;
-    $items = array_slice($export_json_asc, $i, $group_size);
+    $items = array_slice($export_json_asc, $i, $group_limit);
     post_annotations($items, $posted_json, $co, $export_references, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api, $hypothesis_group, $jwts, $api_tokens);
     debug(sprintf('Posted %d - %d of %d (in all groups).', $i+1, $i+count($items), $total));
 }
@@ -117,7 +117,7 @@ $import_json = post_annotations_import_json();
 $import_json_ids = post_annotations_import_json_ids();
 $annotations_json_dates = post_annotations_import_json_dates();
 $annotations_json = post_annotations_import_json_annotations();
-$missing_json = post_annotations_import_json_missing();
+$missing_json = get_annotation_failures();
 $failures_json = post_annotations_import_json_failures();
 
 if (!empty($failures_json)) {
