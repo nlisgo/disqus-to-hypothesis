@@ -246,6 +246,7 @@ function post_annotations($items, $posted, $group, $export_references, $target_b
             ],
             'text' => $item->body[0]->value,
             'uri' => $target,
+            'imported_id' => $item->id,
         ];
 
         $error = [];
@@ -272,8 +273,7 @@ function post_annotations($items, $posted, $group, $export_references, $target_b
     }
 }
 
-// $items, $co, $target_base_uri, $alternative_base_uri, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api
-function patch_annotations($items, $group, $target_base_uri, $alternative_base_uri, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api, &$jwts = [], &$api_tokens = []) {
+function patch_annotations($items, $posted, $group, $target_base_uri, $alternative_base_uri, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api, &$jwts = [], &$api_tokens = []) {
     $co = 0;
     foreach ($items as $id => $item) {
         $co++;
@@ -289,9 +289,11 @@ function patch_annotations($items, $group, $target_base_uri, $alternative_base_u
         $target = alternative_target_base_uri($item['uri'], $target_base_uri, $alternative_base_uri);
         $item['uri'] = $target;
         $item['target'] = [['source' => $target]];
-
-        debug(sprintf('%d of %d (in group %d) patched (%s).', $co, count($items), $group, $id));
+        if ($imported_id = array_search($id, $posted)) {
+            $item['imported_id'] = $imported_id;
+        }
         patch_annotation($id, $item, $hypothesis_api, $api_token);
+        debug(sprintf('%d of %d (in group %d) patched (%s).', $co, count($items), $group, $id));
     }
 }
 

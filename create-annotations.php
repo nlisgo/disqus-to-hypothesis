@@ -86,8 +86,8 @@ $process_branches = function ($branches, $references = []) use (&$export_referen
 
 $process_branches($export_tree);
 
-if ($limit > 0) {
-    $export_json = array_slice($export_json, $offset, $limit);
+if ($limit > 0 || $offset > 0) {
+    $export_json = array_slice($export_json, $offset, (($limit > 0) ? $limit : null));
 }
 
 foreach ($export_json as $item) {
