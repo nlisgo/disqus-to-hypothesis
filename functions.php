@@ -146,7 +146,7 @@ function get_annotation($id, $hypothesis_api, $attempt = 1) {
         get_annotation_results($id, $data, $attempt);
         return $data;
     } catch (Exception $e) {
-        get_annotation_failures($id, ['exception' => $e->getMessage(), 'attempt' => $attempt]);
+        get_annotation_failures($id, ['error' => $e->getMessage(), 'exception' => $e, 'attempt' => $attempt]);
     }
     return false;
 }
@@ -251,7 +251,7 @@ function post_annotations($items, $posted, $group, $export_references, $hypothes
             post_annotations_import_json_ids($username, $id);
             post_annotations_import_json_dates($id, $item->created, $item->modified);
             post_annotations_import_json_annotations($id, $annotation);
-        } elseif ($target !== false || !empty($error)) {
+        } elseif ($target === false || !empty($error)) {
             if (empty($error)) {
                 $error = ['target' => false];
             }
