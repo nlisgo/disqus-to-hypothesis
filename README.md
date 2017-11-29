@@ -18,6 +18,8 @@ Prepare `./config.php` from `./example.config.php`.
 * `hypothesis_authority` - Hypothesis authority.
 * `hypothesis_client_id_jwt` - Hypothesis client ID to create JWT tokens.
 * `hypothesis_secret_key_jwt` - Hypothesis secret key to create JWT tokens.
+* `target_base_url` - this is used to perform a search and replace on target uri's if alternative_base_url is not empty.
+* `alternative_base_url` - when importing annotations to a test authority, this will allow you to preview the annotations in a client with a different host name.
 
 ## Export comments from disqus (`./export.php`)
 
@@ -76,6 +78,14 @@ The create-annotations fixtures can be found in the `./import/` folder.
     1. `./import/import-references.json` - the parents of each annotation processed.
     1. `./import/import-missing.json` - capture the annotations that were missing after appearing to be created.
     1. `./import/import-id-map.json` - source id to destination id map.
+    
+## Update annotations on Hypothesis publisher group. (`./update-annotations.php`)
+
+This script relies on `./create-annotations.php` having been run already as it draws from `./import/import-annotations.json`.
+
+The main purpose of this is to update the target uri's of annotations that have already been created.
+
+There are no artifacts for this command.
 
 ## Delete annotations on Hypothesis publisher group. (`./delete-annotations.php`)
 

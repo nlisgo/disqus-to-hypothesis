@@ -23,3 +23,8 @@ $GLOBALS['hypothesis_authority'] = 'hypothes.is';
 $GLOBALS['hypothesis_client_id_jwt'] = '';
 // Configure: Hypothesis secret key to create JWT tokens.
 $GLOBALS['hypothesis_secret_key_jwt'] = '';
+
+// Configure: this is used to perform a search and replace on target uri's if alternative_base_url is not empty.
+$GLOBALS['target_base_uri'] = 'http://myhostname.com/';
+// Configure: when importing annotations to a test authority, this will allow you to preview the annotations in a client with a different host name.
+$GLOBALS['alternative_base_uri'] = '';

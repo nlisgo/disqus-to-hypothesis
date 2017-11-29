@@ -138,6 +138,17 @@ function post_annotation($annotation, $hypothesis_api, $api_token, &$error = [],
     }
 }
 
+function patch_annotation($id, $annotation, $hypothesis_api, $api_token) {
+    $client = new Client();
+    $response = $client->request('PATCH', $hypothesis_api.'annotations/'.$id, [
+        'headers' => [
+            'Authorization' => 'Bearer '.$api_token,
+        ],
+        'body' => json_encode($annotation),
+    ]);
+    return json_decode((string) $response->getBody());
+}
+
 function get_annotation($id, $hypothesis_api, $attempt = 1) {
     $client = new Client();
     try {
@@ -191,7 +202,7 @@ function debug($output, $interupt = false) {
     }
 }
 
-function post_annotations($items, $posted, $group, $export_references, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api, $hypothesis_group, &$jwts, &$api_tokens) {
+function post_annotations($items, $posted, $group, $export_references, $target_base_uri, $alternative_base_uri, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api, $hypothesis_group, &$jwts = [], &$api_tokens = []) {
     $co = 0;
     $sent = [];
     foreach ($items as $item) {
@@ -210,6 +221,7 @@ function post_annotations($items, $posted, $group, $export_references, $hypothes
         if (!empty($export_references[$item->id])) {
             $references = $export_references[$item->id];
             $target = reset($references);
+            $target = alternative_target_base_uri($target, $target_base_uri, $alternative_base_uri);
             foreach ($references as $ref) {
                 $ref_dest_id = post_annotations_import_id_map($ref);
                 if (!empty($ref_dest_id)) {
@@ -258,6 +270,37 @@ function post_annotations($items, $posted, $group, $export_references, $hypothes
             post_annotations_import_json_failures(['annotation' => $annotation] + $error);
         }
     }
+}
+
+// $items, $co, $target_base_uri, $alternative_base_uri, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api
+function patch_annotations($items, $group, $target_base_uri, $alternative_base_uri, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api, &$jwts = [], &$api_tokens = []) {
+    $co = 0;
+    foreach ($items as $id => $item) {
+        $co++;
+        $username = preg_replace('~acct:([^@]+)@.+~', '$1', $item['permissions']['update'][0]);
+        if (!isset($jwts[$username])) {
+            $jwts[$username] = fetch_jwt($username, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt);
+        }
+        $jwt = $jwts[$username];
+        if (!isset($api_tokens[$jwt])) {
+            $api_tokens[$jwt] = swap_jwt_for_api_token($jwt, $hypothesis_api);
+        }
+        $api_token = $api_tokens[$jwt];
+        $target = alternative_target_base_uri($item['uri'], $target_base_uri, $alternative_base_uri);
+        $item['uri'] = $target;
+        $item['target'] = [['source' => $target]];
+
+        debug(sprintf('%d of %d (in group %d) patched (%s).', $co, count($items), $group, $id));
+        patch_annotation($id, $item, $hypothesis_api, $api_token);
+    }
+}
+
+function alternative_target_base_uri($target, $base_uri, $alternative_base_uri) {
+    if (!empty($base_uri) && !empty($alternative_base_uri)) {
+        return preg_replace('~^'.preg_quote($base_uri).'~', $alternative_base_uri, $target);
+    }
+
+    return $target;
 }
 
 function post_annotations_import_id_map($source_id = null, $id = null, $remove = false) {

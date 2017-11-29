@@ -8,7 +8,7 @@ require(__DIR__.'/vendor/autoload.php');
 error_reporting(E_ERROR | E_PARSE);
 
 $required_empty = [];
-foreach (['hypothesis_authority', 'hypothesis_api', 'hypothesis_group', 'hypothesis_authority', 'hypothesis_client_id_jwt', 'hypothesis_secret_key_jwt'] as $required) {
+foreach (['hypothesis_api', 'hypothesis_authority', 'hypothesis_group', 'hypothesis_client_id_jwt', 'hypothesis_secret_key_jwt'] as $required) {
     if (empty($GLOBALS[$required])) {
         $required_empty[] = $required;
     }
@@ -18,12 +18,13 @@ if (!empty($required_empty)) {
     throw new Exception('You must set a value for '.implode(', ', $required_empty).' in '.__DIR__.'/config.php');
 }
 
-$hypothesis_authority = $GLOBALS['hypothesis_authority'];
 $hypothesis_api = $GLOBALS['hypothesis_api'];
-$hypothesis_group = $GLOBALS['hypothesis_group'];
 $hypothesis_authority = $GLOBALS['hypothesis_authority'];
+$hypothesis_group = $GLOBALS['hypothesis_group'];
 $hypothesis_client_id_jwt = $GLOBALS['hypothesis_client_id_jwt'];
 $hypothesis_secret_key_jwt = $GLOBALS['hypothesis_secret_key_jwt'];
+$target_base_uri = $GLOBALS['target_base_uri'];
+$alternative_base_uri = $GLOBALS['alternative_base_uri'];
 
 $limit = 0;
 $offset = 0;
@@ -57,8 +58,6 @@ $export_tree = [];
 $export_references = [];
 $import_json = [];
 $import_json_ids = [];
-$jwts = [];
-$api_tokens = [];
 $id_map_json = [];
 $annotations_json = [];
 $annotations_json_dates = [];
@@ -108,7 +107,7 @@ $co = 0;
 for ($i = 0; $i < $total; $i += $group_limit) {
     $co++;
     $items = array_slice($export_json_asc, $i, $group_limit);
-    post_annotations($items, $posted_json, $co, $export_references, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api, $hypothesis_group, $jwts, $api_tokens);
+    post_annotations($items, $posted_json, $co, $export_references, $target_base_uri, $alternative_base_uri, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api, $hypothesis_group);
     debug(sprintf('Posted %d - %d of %d (in all groups).', $i+1, $i+count($items), $total));
 }
 

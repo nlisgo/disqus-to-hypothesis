@@ -20,10 +20,9 @@ if (!empty($required_empty)) {
     throw new Exception('You must set a value for '.implode(', ', $required_empty).' in '.__DIR__.'/config.php');
 }
 
-$hypothesis_authority = $GLOBALS['hypothesis_authority'];
 $hypothesis_api = $GLOBALS['hypothesis_api'];
-$hypothesis_group = $GLOBALS['hypothesis_group'];
 $hypothesis_authority = $GLOBALS['hypothesis_authority'];
+$hypothesis_group = $GLOBALS['hypothesis_group'];
 $hypothesis_client_id_jwt = $GLOBALS['hypothesis_client_id_jwt'];
 $hypothesis_secret_key_jwt = $GLOBALS['hypothesis_secret_key_jwt'];
 
