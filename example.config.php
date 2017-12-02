@@ -28,3 +28,6 @@ $GLOBALS['hypothesis_secret_key_jwt'] = '';
 $GLOBALS['target_base_uri'] = 'http://myhostname.com/';
 // Configure: when importing annotations to a test authority, this will allow you to preview the annotations in a client with a different host name.
 $GLOBALS['alternative_base_uri'] = '';
+
+// Configure: formula to preserve.
+$GLOBALS['formula'] = [];

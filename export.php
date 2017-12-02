@@ -19,6 +19,7 @@ $hypothesis_authority = $GLOBALS['hypothesis_authority'];
 $media_new_swap = $GLOBALS['media_new_swap'];
 $media_new_location = $GLOBALS['media_new_location'];
 $effective_uri_check = $GLOBALS['effective_uri_check'];
+$formula = $GLOBALS['formula'];
 
 if ($media_new_swap && empty($media_new_location)) {
     throw new Exception('You must set media_new_location, if media_new_swap is set to true.');
@@ -27,8 +28,6 @@ if ($media_new_swap && empty($media_new_location)) {
 $version = '3.0';
 $disqus = new \DisqusAPI($secret_key);
 $limit = 0;
-$unused_char_1 = '∞';
-$unused_char_2 = 'ª';
 
 $export_folder = __DIR__.'/export/';
 $export_json_file = $export_folder.'/export.json';
@@ -57,7 +56,9 @@ $convertxml->setCreator('acct:disqus-import@'.$hypothesis_authority);
 
 // Convert Disqus XML to json structure required to import to Hypothesis.
 if (!(new Filesystem)->exists($disqus_json_file)) {
+    debug('Conversion from XML to import structure.');
     $export = $convertxml->getOutput();
+    debug('Conversion complete.');
     // Store: conversion from XML to import structure preserved in file.
     file_put_contents($disqus_json_file, $export);
 } else {
@@ -133,6 +134,7 @@ $args = ['forum' => $forum, 'version' => $version];
 
 // Get disqus list from API.
 if (!(new Filesystem)->exists($disqus_api_file)) {
+    debug('Gather comments from Disqus API.');
     while ($continue) {
         $data = $disqus->posts->list($args);
         if (!empty($data->response)) {
@@ -149,6 +151,7 @@ if (!(new Filesystem)->exists($disqus_api_file)) {
             $continue = !$continue;
         }
     };
+    debug('Completed gathering comments from Disqus API.');
 } else {
     $list = json_decode(file_get_contents($disqus_api_file));
 }
@@ -175,7 +178,7 @@ foreach ($list as $i => $post) {
         // This is not expected but is used as a marker in case no email is found.
         $list[$i]->author->email = '**empty**';
     }
-    $markdown = convert_raw_message_to_markdown($post->raw_message);
+    $markdown = convert_raw_message_to_markdown($post->raw_message, $formula);
     // Append attached media files to the end of message.
     if (!empty($post->media)) {
         $co = 0;
@@ -196,12 +199,17 @@ foreach ($list as $i => $post) {
     if (!empty($user)) {
         $export_json[array_search($post->id, $messages)]->creator = preg_replace('~(acct:)[^@]+~', '$1'.$user, $export_json[array_search($post->id, $messages)]->creator);
     }
+    $markdown = convert_urls_to_markdown_links($markdown);
+
     $export_json[array_search($post->id, $messages)]->body[0]->value = $markdown;
+    debug(sprintf('%d of %d prepared.', $i+1, count($list)));
 }
+
 
 // Replace media files in messages with paths to alternative location.
 $export_json_flat = json_encode($export_json);
 if ($media_new_swap) {
+    debug('Convert media links.');
     $media_search = array_map(function($value){
         return '~'.str_replace('/', '\\\/', preg_quote($value, '~')).'~';
     }, array_keys($media_files));
@@ -209,10 +217,11 @@ if ($media_new_swap) {
         return str_replace('/', '\/', $media_new_location.$value);
     }, array_values($media_files));
     $export_json_flat = preg_replace($media_search, $media_replace, $export_json_flat);
+    debug('Completed conversion of media links.');
 }
-$export_json_flat = convert_urls_to_markdown_links($export_json_flat);
 $export_json = json_decode($export_json_flat);
 
+debug('Set targets and prepare clean json.');
 foreach ($export_json as $k => $item) {
     if (!empty($target_map[$item->target])) {
         $export_json[$k]->target = $target_map[$item->target];
@@ -225,6 +234,7 @@ foreach ($export_json as $k => $item) {
         unset($export_json_clean[$k]->name);
     }
 }
+debug('Completed setting targets and preparation of clean json.');
 
 if ((new Filesystem)->exists($export_folder)) {
     (new Filesystem)->remove($export_folder);
@@ -236,10 +246,12 @@ if ((new Filesystem)->exists($media_folder)) {
 }
 (new Filesystem)->mkdir($media_folder);
 
+debug('Store media files locally.');
 // Store: disqus media files to be uploaded to alternative location.
-foreach ($media_files as $from => $to) {
-    (new Filesystem)->copy($from, $media_folder.$to);
-}
+//foreach ($media_files as $from => $to) {
+//    (new Filesystem)->copy($from, $media_folder.$to);
+//}
+debug('Completed storage of media files locally.');
 
 // Store: email and display name pairs for profile import.
 file_put_contents($emails_json_file, json_encode($emails_json));

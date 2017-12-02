@@ -20,6 +20,7 @@ Prepare `./config.php` from `./example.config.php`.
 * `hypothesis_secret_key_jwt` - Hypothesis secret key to create JWT tokens.
 * `target_base_url` - this is used to perform a search and replace on target uri's if alternative_base_url is not empty.
 * `alternative_base_url` - when importing annotations to a test authority, this will allow you to preview the annotations in a client with a different host name.
+* `formula` - formula to preserve.
 
 ## Export comments from disqus (`./export.php`)
 

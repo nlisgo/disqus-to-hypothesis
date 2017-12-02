@@ -29,6 +29,7 @@ $alternative_base_uri = $GLOBALS['alternative_base_uri'];
 $limit = 0;
 $offset = 0;
 $group_size = 100;
+$whitelist = [];
 
 $import_folder = __DIR__.'/import/';
 $import_json_annotations_file = $import_folder.'/import-annotations.json';
@@ -47,6 +48,18 @@ $posted_json = [];
 
 $update_json = json_decode(file_get_contents($import_json_annotations_file), true);
 
+if (!empty($whitelist)) {
+    $limited_json = [];
+    foreach ($whitelist as $id) {
+        if (isset($update_json[$id])) {
+            $limited_json[$id] = $update_json[$id];
+        } else {
+            debug(sprintf('Whitelist item not found (%s).', $id));
+        }
+    }
+    $update_json = $limited_json;
+}
+
 if ((new Filesystem)->exists($import_json_id_map)) {
     $posted_json = json_decode(file_get_contents($import_json_id_map), true);
 }
@@ -60,7 +73,7 @@ $group_limit = ($group_size > 0) ? $group_size : $total;
 $co = 0;
 for ($i = 0; $i < $total; $i += $group_limit) {
     $co++;
-    $items = array_slice($update_json, $i, $group_limit);
+    $items = array_slice($update_json, $i, $group_limit, true);
     patch_annotations($items, $posted_json, $co, $target_base_uri, $alternative_base_uri, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api);
     debug(sprintf('Patched %d - %d of %d (in all groups).', $i+1, $i+count($items), $total));
 }
