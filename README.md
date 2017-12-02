@@ -1,6 +1,6 @@
 # disqus API export for hypothes.is
 
-## Install dependendencies
+## Install dependencies
 
 Run `composer install`.
 
