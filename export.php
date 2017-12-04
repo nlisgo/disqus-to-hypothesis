@@ -20,6 +20,8 @@ $media_new_swap = $GLOBALS['media_new_swap'];
 $media_new_location = $GLOBALS['media_new_location'];
 $effective_uri_check = $GLOBALS['effective_uri_check'];
 $formula = $GLOBALS['formula'];
+$target_base_uri = $GLOBALS['target_base_uri'];
+$alternative_base_uri = $GLOBALS['alternative_base_uri'];
 
 if ($media_new_swap && empty($media_new_location)) {
     throw new Exception('You must set media_new_location, if media_new_swap is set to true.');
@@ -248,9 +250,9 @@ if ((new Filesystem)->exists($media_folder)) {
 
 debug('Store media files locally.');
 // Store: disqus media files to be uploaded to alternative location.
-//foreach ($media_files as $from => $to) {
-//    (new Filesystem)->copy($from, $media_folder.$to);
-//}
+foreach ($media_files as $from => $to) {
+    (new Filesystem)->copy($from, $media_folder.$to);
+}
 debug('Completed storage of media files locally.');
 
 // Store: email and display name pairs for profile import.
@@ -268,6 +270,12 @@ file_put_contents($export_json_tree_file, $export_tree);
 // Store: example HTML output for verification purposes.
 $export_html = $convertxml->presentOutput(json_decode($export_tree));
 $export_html = preg_replace('~(</title>)(</head>)~', '$1<style> img {max-width: 350px;} </style>$2', $export_html);
+
+if (!empty($target_base_uri) && !empty($alternative_base_uri)) {
+    debug('Add preview link to export.html');
+    $export_html = preg_replace('~(<h2><a href=")('.preg_quote($target_base_uri).')([^\"]+)(">[^<]+</a>)(</h2>)~', '$1$2$3$4 <a href="'.$alternative_base_uri.'$3?open-sesame" target="_blank">preview</a>$5', $export_html);
+}
+
 file_put_contents($export_html_file, $export_html);
 
 // Store: legacy url key's and new media file name values.

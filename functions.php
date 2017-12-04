@@ -11,9 +11,9 @@ use League\HTMLToMarkdown\HtmlConverter;
 function convert_raw_message_to_markdown($raw_message, $formula = []) {
     $base64_lock = [];
     $base64_unlock = [];
-    foreach ($formula as $k => $v) {
-        $base64_lock[$k] = base64_encode($k);
-        $base64_unlock[$base64_lock[$k]] = $v;
+    foreach ($formula as $f) {
+        $base64_lock[$f] = base64_encode($f);
+        $base64_unlock[$base64_lock[$f]] = $f;
     }
     $newline_placeholder = '∞';
     $hash_placeholder = '¢';
