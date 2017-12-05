@@ -4,6 +4,21 @@ use Firebase\JWT\JWT;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ClientException;
 use League\HTMLToMarkdown\HtmlConverter;
+use Misd\Linkify\Linkify;
+
+/**
+ * @return string
+ */
+function add_anchor_tags_to_plain_urls($raw_message) {
+    // Detect if anchor tag exists in $raw_message, no disqus comment appears to have a mix of anchored and non-anchored url's
+    $output = $raw_message;
+    if (true || !preg_match('~<a href=~', $output)) {
+        $linkify = new Linkify();
+        $output = $linkify->process($output);
+    }
+
+    return $output;
+}
 
 /**
  * @return string
@@ -57,20 +72,19 @@ function convert_urls_to_markdown_links($markdown) {
     $newline_placeholder = '∞';
     // Preserve linebreaks as we perform url conversions.
     $output = preg_replace('~(\s*\\n\s*){1,}~', $newline_placeholder, $markdown);
-    $output = preg_replace('~<(https?:\/\/[^\s\">'.$newline_placeholder.']+)>~', '$1', $output);
-    // Convert url's to markdown links.
-    $output = preg_replace('~(^|[^\[\(])(https?:\/\/[^\s\"'.$newline_placeholder.']+)~', '$1[$2]($2)', $output);
-    $output = preg_replace('~(^|[^\]])\((https?:\/\/[^\s\"\)'.$newline_placeholder.']+)\)~', '$1([$2]($2))', $output);
+    // Extend abbreviated links.
+    $output = preg_replace('~\[(https?:\/\/[^\]\s]+)\.\.\.\]\((https?[^\)\s]+)\)~i', '<$2>', $output);
     // Link images to their files.
-    $output = preg_replace('~\[(https?:\/\/[^\]]+\.)(jpg|jpeg|png|gif)\]\(\1\2\)~', '[![]($1$2)]($1$2)', $output);
+    $output = preg_replace('~<(https?:\/\/[^\>\s]+\.)(jpg|jpeg|png|gif)>~i', '[![]($1$2)]($1$2)', $output);
 
-    $output = preg_replace('~\[(https?:\/\/)(youtu\.be|youtube\.com|www\.youtube\.com)(\/[^\]]+)\]\(\1\2\3\)~', '$1$2$3', $output);
+    $output = preg_replace('~<(https?:\/\/)(youtu\.be|youtube\.com|www\.youtube\.com)(\/[^\>\s]+)>~i', '$1$2$3', $output);
     // Remove duplicate youtube links.
-    $output = preg_replace('~(https:\/\/youtu\.be\/)([A-z0-9\-]+)(.+)http:\/\/www\.youtube\.com\/watch\?v=\2$~', '$1$2$3', $output);
+    $output = preg_replace('~(https:\/\/youtu\.be\/)([A-z0-9\-]+)(.+)http:\/\/www\.youtube\.com\/watch\?v=\2$~i', '$1$2$3', $output);
     // Reinstate linebreaks.
     $output = preg_replace('~('.preg_quote($newline_placeholder).'){1,}~', PHP_EOL.PHP_EOL, $output);
-    // Extend abbreviated links.
-    $output = preg_replace('~\[(https?:\/\/[^\]]+)\.\.\.\]\(\1([^\)]+)\)~', '[$1$2]($1$2)', $output);
+
+    $output = preg_replace('~([^A-z0-9\/]+)\]\((http[^\)]+)\1\)~i', ']($2)$1', $output);
+    $output = preg_replace('~<(http[^>\s]+)([^A-z0-9\/]+)>~i', '<$1>$2', $output);
 
     return trim($output);
 }
@@ -225,7 +239,7 @@ function debug($output, $interupt = false) {
     }
 }
 
-function post_annotations($items, $posted, $group, $export_references, $target_base_uri, $alternative_base_uri, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api, $hypothesis_group, &$jwts = [], &$api_tokens = []) {
+function post_annotations($items, $posted, $group, $export_references, $target_base_uri, $alternative_base_uri, $media_swap, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api, $hypothesis_group, &$jwts = [], &$api_tokens = []) {
     $co = 0;
     $sent = [];
     foreach ($items as $item) {
@@ -254,6 +268,14 @@ function post_annotations($items, $posted, $group, $export_references, $target_b
         } else {
             $target = false;
         }
+
+        $body = $item->body[0]->value;
+        if (!empty($media_swap)) {
+            foreach ($media_swap as $from => $to) {
+                $body = str_replace($from, $to, $body);
+            }
+        }
+
         $annotation = [
             'group' => $hypothesis_group,
             'permissions' => [
@@ -267,7 +289,7 @@ function post_annotations($items, $posted, $group, $export_references, $target_b
             'target' => [
                 ['source' => $target],
             ],
-            'text' => $item->body[0]->value,
+            'text' => $body,
             'uri' => $target,
             'imported_id' => $item->id,
         ];

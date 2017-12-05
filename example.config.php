@@ -31,3 +31,6 @@ $GLOBALS['alternative_base_uri'] = '';
 
 // Configure: formula to preserve.
 $GLOBALS['formula'] = [];
+
+// Configure: media files to swap.
+$GLOBALS['media_swap'] = [];

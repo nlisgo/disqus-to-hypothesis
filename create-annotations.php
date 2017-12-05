@@ -25,6 +25,7 @@ $hypothesis_client_id_jwt = $GLOBALS['hypothesis_client_id_jwt'];
 $hypothesis_secret_key_jwt = $GLOBALS['hypothesis_secret_key_jwt'];
 $target_base_uri = $GLOBALS['target_base_uri'];
 $alternative_base_uri = $GLOBALS['alternative_base_uri'];
+$media_swap = $GLOBALS['media_swap'];
 
 $limit = 0;
 $offset = 0;
@@ -107,7 +108,7 @@ $co = 0;
 for ($i = 0; $i < $total; $i += $group_limit) {
     $co++;
     $items = array_slice($export_json_asc, $i, $group_limit);
-    post_annotations($items, $posted_json, $co, $export_references, $target_base_uri, $alternative_base_uri, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api, $hypothesis_group);
+    post_annotations($items, $posted_json, $co, $export_references, $target_base_uri, $alternative_base_uri, $media_swap, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api, $hypothesis_group);
     debug(sprintf('Posted %d - %d of %d (in all groups).', $i+1, $i+count($items), $total));
 }
 

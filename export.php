@@ -180,7 +180,8 @@ foreach ($list as $i => $post) {
         // This is not expected but is used as a marker in case no email is found.
         $list[$i]->author->email = '**empty**';
     }
-    $markdown = convert_raw_message_to_markdown($post->raw_message, $formula);
+    $markdown = add_anchor_tags_to_plain_urls($post->raw_message);
+    $markdown = convert_raw_message_to_markdown($markdown, $formula);
     // Append attached media files to the end of message.
     if (!empty($post->media)) {
         $co = 0;
@@ -188,7 +189,7 @@ foreach ($list as $i => $post) {
             if (!empty($media->resolvedUrl)) {
                 $resolvedUrl = preg_replace('~^//~', 'https://', $media->resolvedUrl);
                 if (strpos($media->resolvedUrl, 'https://uploads.disquscdn.com/images') !== 0) {
-                    $markdown .= PHP_EOL.PHP_EOL.$resolvedUrl;
+                    $markdown .= PHP_EOL.PHP_EOL.'<'.$resolvedUrl.'>';
                 }
                 if ($media->mediaType == 2) {
                     $co++;
