@@ -98,6 +98,7 @@ if ((new Filesystem)->exists($target_map_file)) {
     }
 }
 
+$dom = new DOMDocument();
 foreach ($export_json as $k => $item) {
     $post_id = preg_replace('~^disqus\-import:~', '', $item->id);
     $messages[$k] = $post_id;
@@ -110,13 +111,21 @@ foreach ($export_json as $k => $item) {
         if (!isset($target_map[$item->target]) && strpos($item->target, 'disqus-import:') !== 0) {
             try {
                 $client = new Client();
-                $client->get($item->target, [
+                $html = $client->get($item->target, [
                     'on_stats' => function (TransferStats $stats) use (&$effective_url) {
                         $effective_url = (string) $stats->getEffectiveUri();
                     }
                 ])->getBody()->getContents();
-                $target_map[$item->target] = $effective_url;
-                $target_map[$effective_url] = $effective_url;
+                $dom->loadHTML($html);
+                $title = $dom->getElementsByTagName('title')->item(0)->textContent;
+                $title = preg_split('~\s+\|\s+~', $title);
+                $title = reset($title);
+                $effective = [
+                    'effective' => $effective_url,
+                    'title' => $title,
+                ];
+                $target_map[$item->target] = $effective;
+                $target_map[$effective_url] = $effective;
             } catch (Exception $e) {
                 $rejected_annotations[] = ['reason' => $e->getMessage(), 'item' => $item];
                 $target_map[$item->target] = null;
@@ -208,7 +217,6 @@ foreach ($list as $i => $post) {
     debug(sprintf('%d of %d prepared.', $i+1, count($list)));
 }
 
-
 // Replace media files in messages with paths to alternative location.
 $export_json_flat = json_encode($export_json);
 if ($media_new_swap) {
@@ -227,7 +235,7 @@ $export_json = json_decode($export_json_flat);
 debug('Set targets and prepare clean json.');
 foreach ($export_json as $k => $item) {
     if (!empty($target_map[$item->target])) {
-        $export_json[$k]->target = $target_map[$item->target];
+        $export_json[$k]->target = $target_map[$item->target]['effective'];
     } elseif (strpos($export_json[$k]->target, 'disqus-import:') !== 0) {
         $export_json[$k]->target = false;
     }

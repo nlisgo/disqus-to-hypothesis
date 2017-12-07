@@ -43,6 +43,7 @@ $import_json_annotation_dates_file = $import_folder.'/import-annotation-dates.js
 $import_json_ids_file = $import_folder.'/import-ids.json';
 $import_json_failures_file = $import_folder.'/import-failures.json';
 $import_json_missing_file = $import_folder.'/import-missing.json';
+$target_map_file = __DIR__.'/target-map.json';
 $skip_posted = true;
 
 if (!(new Filesystem)->exists($export_json_clean_file)) {
@@ -65,6 +66,15 @@ $annotations_json_dates = [];
 $failures_json = [];
 $missing_json = [];
 $posted_json = [];
+$target_map = [];
+
+if ((new Filesystem)->exists($target_map_file)) {
+    $json_string = file_get_contents($target_map_file);
+    $target_map = json_decode($json_string, true);
+    if (is_null($target_map)) {
+        throw new Exception('Invalid json in: '.$target_map_file);
+    }
+}
 
 if ($skip_posted && (new Filesystem)->exists($import_json_id_map)) {
     $posted_json = json_decode(file_get_contents($import_json_id_map));
@@ -108,7 +118,7 @@ $co = 0;
 for ($i = 0; $i < $total; $i += $group_limit) {
     $co++;
     $items = array_slice($export_json_asc, $i, $group_limit);
-    post_annotations($items, $posted_json, $co, $export_references, $target_base_uri, $alternative_base_uri, $media_swap, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api, $hypothesis_group);
+    post_annotations($items, $posted_json, $co, $export_references, $target_map, $target_base_uri, $alternative_base_uri, $media_swap, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api, $hypothesis_group);
     debug(sprintf('Posted %d - %d of %d (in all groups).', $i+1, $i+count($items), $total));
 }
 

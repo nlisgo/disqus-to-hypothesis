@@ -246,7 +246,7 @@ function debug($output, $interupt = false) {
     }
 }
 
-function post_annotations($items, $posted, $group, $export_references, $target_base_uri, $alternative_base_uri, $media_swap, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api, $hypothesis_group, &$jwts = [], &$api_tokens = []) {
+function post_annotations($items, $posted, $group, $export_references, $target_map, $target_base_uri, $alternative_base_uri, $media_swap, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt, $hypothesis_api, $hypothesis_group, &$jwts = [], &$api_tokens = []) {
     $co = 0;
     $sent = [];
     foreach ($items as $item) {
@@ -264,8 +264,9 @@ function post_annotations($items, $posted, $group, $export_references, $target_b
         $refs = [];
         if (!empty($export_references[$item->id])) {
             $references = $export_references[$item->id];
-            $target = reset($references);
-            $target = alternative_target_base_uri($target, $target_base_uri, $alternative_base_uri);
+            $original_target = reset($references);
+            $title = $target_map[$original_target]['title'];
+            $target = alternative_target_base_uri($original_target, $target_base_uri, $alternative_base_uri);
             foreach ($references as $ref) {
                 $ref_dest_id = post_annotations_import_id_map($ref);
                 if (!empty($ref_dest_id)) {
@@ -274,6 +275,7 @@ function post_annotations($items, $posted, $group, $export_references, $target_b
             }
         } else {
             $target = false;
+            $title = false;
         }
 
         $body = $item->body[0]->value;
@@ -296,10 +298,16 @@ function post_annotations($items, $posted, $group, $export_references, $target_b
             'target' => [
                 ['source' => $target],
             ],
+            'document' => [
+                'title' => $title,
+            ],
             'text' => $body,
             'uri' => $target,
             'imported_id' => $item->id,
         ];
+        if (!$title) {
+            unset($annotation['document']);
+        }
 
         $error = [];
         if (!empty($posted) && !empty($posted->{$item->id})) {
