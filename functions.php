@@ -32,6 +32,7 @@ function convert_raw_message_to_markdown($raw_message, $formula = []) {
     }
     $newline_placeholder = '∞';
     $hash_placeholder = '¢';
+    $dollar_placeholder = '§';
     $converter = new HtmlConverter();
     $markdown = $raw_message;
     // Preserve formula through markdown transition.
@@ -47,16 +48,22 @@ function convert_raw_message_to_markdown($raw_message, $formula = []) {
     $markdown = preg_replace('~(http[^\s]+)[ ]+\1~', '$1', $markdown);
     // Preserve pound (#) signs at beginning of line.
     $markdown = preg_replace('~(^|'.$newline_placeholder.')\s*#~', '$1'.$hash_placeholder, $markdown);
+    // Preserve dollar signs.
+    $markdown = preg_replace('~\$~', $dollar_placeholder, $markdown);
     // Convert to markdown.
     $markdown = $converter->convert($markdown);
     // Decrypt formula.
     foreach ($base64_unlock as $k => $v) {
         $markdown = str_replace($k, '`'.$v.'`', $markdown);
     }
+    // Escape hyphen at the start of a line.
+    $markdown = preg_replace('~(^|'.$newline_placeholder.')(\-\s+)~', '$1\\\$2', $markdown);
     // Reinstate linebreaks.
     $markdown = preg_replace('~('.$newline_placeholder.'){1,}~', PHP_EOL.PHP_EOL, $markdown);
     // Reinstate pound (#) signs.
     $markdown = preg_replace('~('.$hash_placeholder.')~', '\#', $markdown);
+    // Reinstate dollar signs.
+    $markdown = preg_replace('~('.$dollar_placeholder.')~', '\\\$', $markdown);
     // Remove space at the beginning of a line.
     $markdown = preg_replace('~(^|\\n)[ ]+~', '$1', $markdown);
     // Detect and standardise list ordinals.
@@ -79,7 +86,7 @@ function convert_urls_to_markdown_links($markdown) {
 
     $output = preg_replace('~<(https?:\/\/)(youtu\.be|youtube\.com|www\.youtube\.com)(\/[^\>\s]+)>~i', '$1$2$3', $output);
     // Remove duplicate youtube links.
-    $output = preg_replace('~(https:\/\/youtu\.be\/)([A-z0-9\-]+)(.+)http:\/\/www\.youtube\.com\/watch\?v=\2$~i', '$1$2$3', $output);
+    $output = preg_replace('~(https:\/\/youtu\.be\/|https:\/\/www\.youtube\.com\/watch\?v=)([A-z0-9\-]+)(.+)http:\/\/www\.youtube\.com\/watch\?v=\2$~i', '$1$2$3', $output);
     // Reinstate linebreaks.
     $output = preg_replace('~('.preg_quote($newline_placeholder).'){1,}~', PHP_EOL.PHP_EOL, $output);
 
