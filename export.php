@@ -244,7 +244,9 @@ foreach ($export_json as $k => $item) {
     } elseif (strpos($export_json[$k]->target, 'disqus-import:') !== 0) {
         $export_json[$k]->target = false;
     }
-    if (!empty($export_json[$k]->target)) {
+    if (empty(trim($export_json[$k]->body[0]->value))) {
+        $rejected_annotations[] = ['reason' => 'body blank', 'item' => $item];
+    } elseif (!empty($export_json[$k]->target)) {
         $export_json_clean[$k] = $export_json[$k];
         unset($export_json_clean[$k]->email);
         unset($export_json_clean[$k]->name);
@@ -278,7 +280,7 @@ file_put_contents($export_json_file, json_encode($export_json));
 file_put_contents($export_json_clean_file, json_encode(array_values($export_json_clean)));
 
 // Store: secondary output that will be used to create annotations from, used to determine the parents of an annotation.
-$export_tree = $convertxml->getTree($export_json);
+$export_tree = $convertxml->getTree($export_json_clean);
 file_put_contents($export_json_tree_file, $export_tree);
 
 // Store: example HTML output for verification purposes.

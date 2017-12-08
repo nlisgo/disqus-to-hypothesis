@@ -31,6 +31,7 @@ function convert_raw_message_to_markdown($raw_message, $formula = []) {
         $base64_unlock[$base64_lock[$f]] = $f;
     }
     $newline_placeholder = '∞';
+    $linebreak_placeholder = '∫';
     $hash_placeholder = '¢';
     $dollar_placeholder = '§';
     $converter = new HtmlConverter();
@@ -42,12 +43,15 @@ function convert_raw_message_to_markdown($raw_message, $formula = []) {
     // Handle instances of < that are not html and should be converted to &lt;.
     $markdown = preg_replace('~<(?!a|p|strong|em|br|iframe|b|i|u|script)([^\/])~', '&lt;$1', $markdown);
     // Preserve linebreaks <br> and \n, so they can be reinstated after markdown conversion.
-    $markdown = preg_replace('~\s*<br/?>\s*~', $newline_placeholder, $markdown);
-    $markdown = preg_replace('~(\s*\\n\s*){1,}~', $newline_placeholder, $markdown);
+    $markdown = preg_replace('~\s*<br/?>\s*~', $linebreak_placeholder, $markdown);
+    $markdown = preg_replace('~(\s*\\n\s*){2,}~', $newline_placeholder, $markdown);
+    $markdown = preg_replace('~(\s*\\n\s*)~', $linebreak_placeholder, $markdown);
+
+    $markdown = preg_replace('~('.$linebreak_placeholder.'|'.$newline_placeholder.'){2,}~', $newline_placeholder, $markdown);
     // Where a url is repeated, remove the 2nd instance.
     $markdown = preg_replace('~(http[^\s]+)[ ]+\1~', '$1', $markdown);
     // Preserve pound (#) signs at beginning of line.
-    $markdown = preg_replace('~(^|'.$newline_placeholder.')\s*#~', '$1'.$hash_placeholder, $markdown);
+    $markdown = preg_replace('~(^|'.$newline_placeholder.'|'.$linebreak_placeholder.')\s*#~', '$1'.$hash_placeholder, $markdown);
     // Preserve dollar signs.
     $markdown = preg_replace('~\$~', $dollar_placeholder, $markdown);
     // Convert to markdown.
@@ -56,18 +60,30 @@ function convert_raw_message_to_markdown($raw_message, $formula = []) {
     foreach ($base64_unlock as $k => $v) {
         $markdown = str_replace($k, '`'.$v.'`', $markdown);
     }
+
+    // Detect if there is references.
+    if (strpos($markdown, $linebreak_placeholder) !== false && preg_match('~('.$newline_placeholder.'[\*]*\s*references:?[\s\*]*'.$newline_placeholder.')~i', $markdown, $matches, PREG_OFFSET_CAPTURE)) {
+        $pre_references = substr($markdown, 0, $matches[0][1]);
+        $references = substr($markdown, $matches[0][1]);
+        $markdown = preg_replace('~('.$linebreak_placeholder.'|'.$newline_placeholder.'){1,}~', $newline_placeholder, $pre_references).$references;
+    } else {
+        $markdown = preg_replace('~('.$linebreak_placeholder.'|'.$newline_placeholder.'){1,}~', $newline_placeholder, $markdown);
+    }
+
     // Escape hyphen at the start of a line.
     $markdown = preg_replace('~(^|'.$newline_placeholder.')(\-\s+)~', '$1\\\$2', $markdown);
-    // Reinstate linebreaks.
+    // Reinstate newlines.
     $markdown = preg_replace('~('.$newline_placeholder.'){1,}~', PHP_EOL.PHP_EOL, $markdown);
+    // Reinstate linebreaks.
+    $markdown = preg_replace('~('.$linebreak_placeholder.')~', PHP_EOL, $markdown);
     // Reinstate pound (#) signs.
     $markdown = preg_replace('~('.$hash_placeholder.')~', '\#', $markdown);
     // Reinstate dollar signs.
-    $markdown = preg_replace('~('.$dollar_placeholder.')~', '$', $markdown);
+    $markdown = preg_replace('~('.$dollar_placeholder.'){1,}~', '$', $markdown);
     // Remove space at the beginning of a line.
     $markdown = preg_replace('~(^|\\n)[ ]+~', '$1', $markdown);
     // Detect and standardise list ordinals.
-    $markdown = preg_replace('~(^|\\n)([a-z0-9]+)(\\\){0,}(\\)|\.) ~', '$1($2) ', $markdown);
+    $markdown = preg_replace('~(^|\\n)([a-z]|[1-9][0-9]*)(\\\){0,}(\\)|\.) ~', '$1($2) ', $markdown);
 
     return trim($markdown);
 }
@@ -78,7 +94,7 @@ function convert_raw_message_to_markdown($raw_message, $formula = []) {
 function convert_urls_to_markdown_links($markdown) {
     $newline_placeholder = '∞';
     // Preserve linebreaks as we perform url conversions.
-    $output = preg_replace('~(\s*\\n\s*){1,}~', $newline_placeholder, $markdown);
+    $output = preg_replace('~(\s*\\n\s*){2,}~', $newline_placeholder, $markdown);
     // Extend abbreviated links.
     $output = preg_replace('~\[(https?:\/\/[^\]\s]+)\.\.\.\]\((https?[^\)\s]+)\)~i', '<$2>', $output);
     // Link images to their files.
@@ -88,7 +104,7 @@ function convert_urls_to_markdown_links($markdown) {
     // Remove duplicate youtube links.
     $output = preg_replace('~(https:\/\/youtu\.be\/|https:\/\/www\.youtube\.com\/watch\?v=)([A-z0-9\-]+)(.+)http:\/\/www\.youtube\.com\/watch\?v=\2$~i', '$1$2$3', $output);
     // Reinstate linebreaks.
-    $output = preg_replace('~('.preg_quote($newline_placeholder).'){1,}~', PHP_EOL.PHP_EOL, $output);
+    $output = preg_replace('~('.$newline_placeholder.'){1,}~', PHP_EOL.PHP_EOL, $output);
 
     $output = preg_replace('~([^A-z0-9\/]+)\]\((http[^\)]+)\1\)~i', ']($2)$1', $output);
     $output = preg_replace('~<(http[^>\s]+)([^A-z0-9\/]+)>~i', '<$1>$2', $output);
