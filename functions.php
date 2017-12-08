@@ -312,11 +312,11 @@ function post_annotations($items, $posted, $group, $export_references, $target_m
         $error = [];
         if (!empty($posted) && !empty($posted->{$item->id})) {
             $id = $posted->{$item->id};
-        } else {
+        } elseif ($target !== false && !empty($body)) {
             $id = post_annotation($annotation, $hypothesis_api, $api_token, $error);
         }
 
-        if ($target !== false && !empty($id)) {
+        if ($target !== false && !empty($id) && !empty($body)) {
             debug(sprintf('%d of %d (in group %d) posted (%s:%s).', $co, count($items), $group, $item->id, $id));
             $sent[$id] = $item;
             post_annotations_import_id_map($item->id, $id);
@@ -324,9 +324,15 @@ function post_annotations($items, $posted, $group, $export_references, $target_m
             post_annotations_import_json_ids($username, $id);
             post_annotations_import_json_dates($id, $item->created, $item->modified);
             post_annotations_import_json_annotations($id, $annotation);
-        } elseif ($target === false || !empty($error)) {
+        } elseif ($target === false || empty($body) || !empty($error)) {
             if (empty($error)) {
-                $error = ['target' => false];
+                $error = [];
+            }
+            if (!$target) {
+                $error += ['target' => false];
+            }
+            if (empty($body)) {
+                $error += ['body' => false];
             }
             post_annotations_import_json_failures(['annotation' => $annotation] + $error);
         }

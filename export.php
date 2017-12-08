@@ -189,7 +189,12 @@ foreach ($list as $i => $post) {
         // This is not expected but is used as a marker in case no email is found.
         $list[$i]->author->email = '**empty**';
     }
-    $markdown = add_anchor_tags_to_plain_urls($post->raw_message);
+    $raw_message = $post->raw_message;
+    if (empty(trim(strip_tags($raw_message)))) {
+        $raw_message = $export_json[array_search($post->id, $messages)]->body[0]->value;
+    }
+
+    $markdown = add_anchor_tags_to_plain_urls($raw_message);
     $markdown = convert_raw_message_to_markdown($markdown, $formula);
     // Append attached media files to the end of message.
     if (!empty($post->media)) {
