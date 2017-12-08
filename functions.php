@@ -63,7 +63,7 @@ function convert_raw_message_to_markdown($raw_message, $formula = []) {
     // Reinstate pound (#) signs.
     $markdown = preg_replace('~('.$hash_placeholder.')~', '\#', $markdown);
     // Reinstate dollar signs.
-    $markdown = preg_replace('~('.$dollar_placeholder.')~', '\\\$', $markdown);
+    $markdown = preg_replace('~('.$dollar_placeholder.')~', '$', $markdown);
     // Remove space at the beginning of a line.
     $markdown = preg_replace('~(^|\\n)[ ]+~', '$1', $markdown);
     // Detect and standardise list ordinals.
