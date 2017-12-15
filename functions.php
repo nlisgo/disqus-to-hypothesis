@@ -27,13 +27,21 @@ function convert_raw_message_to_markdown($raw_message, $formula = []) {
     $base64_lock = [];
     $base64_unlock = [];
     foreach ($formula as $f) {
-        $base64_lock[$f] = base64_encode($f);
-        $base64_unlock[$base64_lock[$f]] = $f;
+        if (is_array($f)) {
+            $s = key($f);
+            $r = $f[$s];
+        } else {
+            $s = $f;
+            $r = $f;
+        }
+        $base64_lock[$s] = base64_encode($s);
+        $base64_unlock[$base64_lock[$s]] = $r;
     }
     $newline_placeholder = '∞';
     $linebreak_placeholder = '∫';
     $hash_placeholder = '¢';
     $dollar_placeholder = '§';
+    $italic_wrapper = 'µ';
     $converter = new HtmlConverter();
     $markdown = $raw_message;
     // Preserve formula through markdown transition.
@@ -46,6 +54,9 @@ function convert_raw_message_to_markdown($raw_message, $formula = []) {
     $markdown = preg_replace('~\s*<br/?>\s*~', $linebreak_placeholder, $markdown);
     $markdown = preg_replace('~(\s*\\n\s*){2,}~', $newline_placeholder, $markdown);
     $markdown = preg_replace('~(\s*\\n\s*)~', $linebreak_placeholder, $markdown);
+
+    $markdown = preg_replace('~<(i|em)>([^<'.$linebreak_placeholder.$newline_placeholder.']+)(['.$linebreak_placeholder.$newline_placeholder.']{1,})~', '<$1>$2</$1>$3<$1>', $markdown);
+    $markdown = preg_replace('~<(i|em)>([^<]+)<\/\1>~', $italic_wrapper.'$2'.$italic_wrapper, $markdown);
 
     $markdown = preg_replace('~('.$linebreak_placeholder.'|'.$newline_placeholder.'){2,}~', $newline_placeholder, $markdown);
     // Where a url is repeated, remove the 2nd instance.
@@ -80,6 +91,7 @@ function convert_raw_message_to_markdown($raw_message, $formula = []) {
     $markdown = preg_replace('~('.$hash_placeholder.')~', '\#', $markdown);
     // Reinstate dollar signs.
     $markdown = preg_replace('~('.$dollar_placeholder.'){1,}~', '$', $markdown);
+    $markdown = preg_replace('~('.$italic_wrapper.')~', '*', $markdown);
     // Remove space at the beginning of a line.
     $markdown = preg_replace('~(^|\\n)[ ]+~', '$1', $markdown);
     // Detect and standardise list ordinals.
