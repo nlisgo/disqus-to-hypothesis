@@ -219,6 +219,7 @@ foreach ($list as $i => $post) {
     $markdown = convert_urls_to_markdown_links($markdown);
 
     $export_json[array_search($post->id, $messages)]->body[0]->value = $markdown;
+    $export_json[array_search($post->id, $messages)]->prepared = true;
     debug(sprintf('%d of %d prepared.', $i+1, count($list)));
 }
 
@@ -244,12 +245,15 @@ foreach ($export_json as $k => $item) {
     } elseif (strpos($export_json[$k]->target, 'disqus-import:') !== 0) {
         $export_json[$k]->target = false;
     }
-    if (empty(trim($export_json[$k]->body[0]->value))) {
+    if (empty($export_json[$k]->prepared)) {
+        $rejected_annotations[] = ['reason' => 'not listed in api', 'item' => $item];
+    } elseif (empty(trim($export_json[$k]->body[0]->value))) {
         $rejected_annotations[] = ['reason' => 'body blank', 'item' => $item];
     } elseif (!empty($export_json[$k]->target)) {
         $export_json_clean[$k] = $export_json[$k];
         unset($export_json_clean[$k]->email);
         unset($export_json_clean[$k]->name);
+        unset($export_json_clean[$k]->prepared);
     }
 }
 debug('Completed setting targets and preparation of clean json.');
