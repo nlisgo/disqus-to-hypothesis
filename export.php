@@ -20,6 +20,7 @@ $media_new_swap = $GLOBALS['media_new_swap'];
 $media_new_location = $GLOBALS['media_new_location'];
 $effective_uri_check = $GLOBALS['effective_uri_check'];
 $formula = $GLOBALS['formula'];
+$override = $GLOBALS['override'];
 $target_base_uri = $GLOBALS['target_base_uri'];
 $alternative_base_uri = $GLOBALS['alternative_base_uri'];
 
@@ -194,8 +195,12 @@ foreach ($list as $i => $post) {
         $raw_message = $export_json[array_search($post->id, $messages)]->body[0]->value;
     }
 
-    $markdown = add_anchor_tags_to_plain_urls($raw_message);
-    $markdown = convert_raw_message_to_markdown($markdown, $formula);
+    if (!empty($override[$post->id])) {
+        $markdown = $override[$post->id];
+    } else {
+        $markdown = add_anchor_tags_to_plain_urls($raw_message);
+        $markdown = convert_raw_message_to_markdown($markdown, $formula);
+    }
     // Append attached media files to the end of message.
     if (!empty($post->media)) {
         $co = 0;
