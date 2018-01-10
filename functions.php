@@ -41,8 +41,7 @@ function convert_raw_message_to_markdown($raw_message, $formula = []) {
     $linebreak_placeholder = '∫';
     $hash_placeholder = '¢';
     $dollar_placeholder = '§';
-    $italic_wrapper = 'µ';
-    $converter = new HtmlConverter();
+    $converter = new HtmlConverter(['italic_style' => '*']);
     $markdown = $raw_message;
     // Preserve formula through markdown transition.
     foreach ($base64_lock as $k => $v) {
@@ -56,7 +55,6 @@ function convert_raw_message_to_markdown($raw_message, $formula = []) {
     $markdown = preg_replace('~(\s*\\n\s*)~', $linebreak_placeholder, $markdown);
 
     $markdown = preg_replace('~<(i|em)>([^<'.$linebreak_placeholder.$newline_placeholder.']+)(['.$linebreak_placeholder.$newline_placeholder.']{1,})~', '<$1>$2</$1>$3<$1>', $markdown);
-    $markdown = preg_replace('~<(i|em)>([^<]+)<\/\1>~', $italic_wrapper.'$2'.$italic_wrapper, $markdown);
 
     $markdown = preg_replace('~('.$linebreak_placeholder.'|'.$newline_placeholder.'){2,}~', $newline_placeholder, $markdown);
     // Where a url is repeated, remove the 2nd instance.
@@ -91,7 +89,6 @@ function convert_raw_message_to_markdown($raw_message, $formula = []) {
     $markdown = preg_replace('~('.$hash_placeholder.')~', '\#', $markdown);
     // Reinstate dollar signs.
     $markdown = preg_replace('~('.$dollar_placeholder.'){1,}~', '$', $markdown);
-    $markdown = preg_replace('~('.$italic_wrapper.')~', '*', $markdown);
     // Remove space at the beginning of a line.
     $markdown = preg_replace('~(^|\\n)[ ]+~', '$1', $markdown);
     // Detect and standardise list ordinals.
