@@ -157,14 +157,22 @@ function swap_jwt_for_api_token($jwt, $hypothesis_api) {
 /**
  * @return array
  */
-function gather_annotation_ids_for_username($username, $hypothesis_api, $hypothesis_group) {
+function gather_annotation_ids_for_username($username, $hypothesis_api, $hypothesis_group, $api_token) {
     $client = new Client();
-    $response = $client->request('GET', $hypothesis_api.'search?limit=1&group='.$hypothesis_group.'&user='.$username);
+    $response = $client->request('GET', $hypothesis_api.'search?limit=1&group='.$hypothesis_group.'&user='.$username, [
+        'headers' => [
+            'Authorization' => 'Bearer '.$api_token,
+        ],
+    ]);
     $ids = [];
     $data = json_decode((string) $response->getBody());
     $limit = 100;
     for ($offset = 0; $offset <= $data->total; $offset += $limit) {
-        $response = $client->request('GET', $hypothesis_api.'search?limit='.$limit.'&offset='.$offset.'&group='.$hypothesis_group.'&user='.$username);
+        $response = $client->request('GET', $hypothesis_api.'search?limit='.$limit.'&offset='.$offset.'&group='.$hypothesis_group.'&user='.$username, [
+            'headers' => [
+                'Authorization' => 'Bearer '.$api_token,
+            ],
+        ]);
         $list = json_decode((string) $response->getBody());
         foreach ($list->rows as $item) {
             $ids[] = $item->id;
@@ -287,9 +295,13 @@ function post_annotations($items, $posted, $group, $export_references, $target_m
         }
         $api_token = $api_tokens[$jwt];
         $refs = [];
+        $article_page = false;
         if (!empty($export_references[$item->id])) {
             $references = $export_references[$item->id];
             $original_target = reset($references);
+            if (preg_match('~/articles/[0-9]{5}$~', $original_target)) {
+                $article_page = true;
+            }
             $title = $target_map[$original_target]['title'];
             $target = alternative_target_base_uri($original_target, $target_base_uri, $alternative_base_uri);
             foreach ($references as $ref) {
@@ -311,6 +323,8 @@ function post_annotations($items, $posted, $group, $export_references, $target_m
         }
 
         $annotation = [
+            'created' => substr($item->created, 0, -1).'.000Z',
+            'updated' => substr($item->modified, 0, -1).'.000Z',
             'group' => $hypothesis_group,
             'permissions' => [
                 'read' => ['group:'.$hypothesis_group],
@@ -325,6 +339,16 @@ function post_annotations($items, $posted, $group, $export_references, $target_m
             ],
             'document' => [
                 'title' => $title,
+                'link' => [
+                    [
+                        'href' => $target,
+                    ],
+                    [
+                        'href' => $target,
+                        'rel' => 'canonical',
+                        'type' => '',
+                    ],
+                ],
             ],
             'text' => $body,
             'uri' => $target,
@@ -332,6 +356,19 @@ function post_annotations($items, $posted, $group, $export_references, $target_m
         ];
         if (!$title) {
             unset($annotation['document']);
+        }
+        if ($article_page) {
+            $doi = '10.7554/eLife.'.substr($target, -5);
+            $annotation['document']['link'][] = [
+                'href' => 'doi:'.$doi,
+            ];
+            $annotation['document']['dc'] = [
+                'Format' => ['text/html'],
+                'Language' => ['en'],
+                'Title' => [$title],
+                'Identifier' => [$doi],
+                'Publisher' => ['eLife Sciences Publications Limited'],
+            ];
         }
 
         $error = [];
