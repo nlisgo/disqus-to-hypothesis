@@ -46,7 +46,7 @@ As part of the migration you may want to move all Disqus hosted media to a new l
     1. `./target-map.json` - array of target url keys with effective url values.
 * Main:
     1. `./export/media/*` - disqus media files to be uploaded to alternative location.
-    1. `./export/emails.json` - email and display name pairs for profile import.
+    1. `./export/emails.txt` - email and display name pairs for profile import.
     1. `./export/export-clean.json` - primary output that will be used to create annotations from.
     1. `./export/export-tree.json` - secondary output that will be used to create annotations from, used to determine the parents of an annotation.
 * Other:

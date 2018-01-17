@@ -37,7 +37,7 @@ $export_json_file = $export_folder.'/export.json';
 $export_json_clean_file = $export_folder.'/export-clean.json';
 $export_json_tree_file = $export_folder.'/export-tree.json';
 $export_html_file = $export_folder.'/export.html';
-$emails_json_file = $export_folder.'/emails.json';
+$emails_txt_file = $export_folder.'/emails.txt';
 $media_json_file = $export_folder.'/media.json';
 $rejected_json_file = $export_folder.'/rejected.json';
 $media_folder = $export_folder.'/media/';
@@ -78,6 +78,7 @@ $export_json_clean = [];
 $messages = [];
 $user_details = [];
 $emails_json = [];
+$emails_txt = [];
 $media_files = [];
 $user_map = [];
 $target_map = [];
@@ -219,7 +220,7 @@ foreach ($list as $i => $post) {
         }
     }
     if (!empty($user)) {
-        $export_json[array_search($post->id, $messages)]->creator = preg_replace('~(acct:)[^@]+~', '$1'.$user, $export_json[array_search($post->id, $messages)]->creator);
+        $export_json[array_search($post->id, $messages)]->creator = preg_replace('~(acct:)[^@]+~', '${1}'.$user, $export_json[array_search($post->id, $messages)]->creator);
     }
     $markdown = convert_urls_to_markdown_links($markdown);
 
@@ -281,7 +282,7 @@ foreach ($media_files as $from => $to) {
 debug('Completed storage of media files locally.');
 
 // Store: email and display name pairs for profile import.
-file_put_contents($emails_json_file, json_encode($emails_json));
+file_put_contents($emails_txt_file, implode(PHP_EOL, $emails_txt));
 
 // Store: artifact of many steps of processing on disqus data.
 file_put_contents($export_json_file, json_encode($export_json));
