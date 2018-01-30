@@ -256,6 +256,10 @@ $export_json = json_decode($export_json_flat);
 debug('Set targets and prepare clean json.');
 foreach ($export_json as $k => $item) {
     if (!empty($target_map[$item->target])) {
+        $email_and_name = $item->email.'|'.$item->name;
+        if (!in_array($email_and_name, $emails_txt)) {
+            $emails_txt[] = $email_and_name;
+        }
         $export_json[$k]->target = $target_map[$item->target]['effective'];
     } elseif (strpos($export_json[$k]->target, 'disqus-import:') !== 0) {
         $export_json[$k]->target = false;
