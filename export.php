@@ -103,6 +103,7 @@ if ((new Filesystem)->exists($target_map_file)) {
 
 $dom = new DOMDocument();
 foreach ($export_json as $k => $item) {
+    $item->email = strtolower($item->email);
     $post_id = preg_replace('~^disqus\-import:~', '', $item->id);
     $messages[$k] = $post_id;
     $user_details[$post_id] = ['email' => $item->email, 'display_name' => $item->name];
@@ -254,12 +255,10 @@ if ($media_new_swap) {
 $export_json = json_decode($export_json_flat);
 
 debug('Set targets and prepare clean json.');
+$emails = [];
 foreach ($export_json as $k => $item) {
     if (!empty($target_map[$item->target])) {
-        $email_and_name = $item->email.'|'.$item->name;
-        if (!in_array($email_and_name, $emails_txt)) {
-            $emails_txt[] = $email_and_name;
-        }
+        $emails[$item->email] = $item->name;
         $export_json[$k]->target = $target_map[$item->target]['effective'];
     } elseif (strpos($export_json[$k]->target, 'disqus-import:') !== 0) {
         $export_json[$k]->target = false;
@@ -276,6 +275,10 @@ foreach ($export_json as $k => $item) {
     }
 }
 debug('Completed setting targets and preparation of clean json.');
+
+foreach ($emails as $email => $name) {
+    $emails_txt[] = $email.'|'.$name;
+}
 
 if ((new Filesystem)->exists($export_folder)) {
     (new Filesystem)->remove($export_folder);
