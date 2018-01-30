@@ -35,5 +35,8 @@ $GLOBALS['formula'] = [];
 // Configure: override markdown conversion.
 $GLOBALS['override'] = [];
 
+// Configure: additional comments not included in disqus export. Does not support media files currently.
+$GLOBALS['additional'] = [];
+
 // Configure: media files to swap.
 $GLOBALS['media_swap'] = [];

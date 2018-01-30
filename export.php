@@ -21,6 +21,7 @@ $media_new_location = $GLOBALS['media_new_location'];
 $effective_uri_check = $GLOBALS['effective_uri_check'];
 $formula = $GLOBALS['formula'];
 $override = $GLOBALS['override'];
+$additional = $GLOBALS['additional'];
 $target_base_uri = $GLOBALS['target_base_uri'];
 $alternative_base_uri = $GLOBALS['alternative_base_uri'];
 
@@ -226,7 +227,15 @@ foreach ($list as $i => $post) {
 
     $export_json[array_search($post->id, $messages)]->body[0]->value = $markdown;
     $export_json[array_search($post->id, $messages)]->prepared = true;
-    debug(sprintf('%d of %d prepared.', $i+1, count($list)));
+    debug(sprintf('%d of %d prepared.', $i+1, count($list)+count($additional)));
+}
+
+if (!empty($additional)) {
+    foreach ($additional as $k => $add) {
+        $add += ['prepared' => true];
+        $export_json[] = (object) $add;
+        debug(sprintf('%d of %d prepared.', count($list)+$k+1, count($list)+count($additional)));
+    }
 }
 
 // Replace media files in messages with paths to alternative location.

@@ -22,6 +22,7 @@ Prepare `./config.php` from `./example.config.php`.
 * `alternative_base_url` - when importing annotations to a test authority, this will allow you to preview the annotations in a client with a different host name.
 * `formula` - formula to preserve.
 * `override` - override markdown conversion.
+* `additional` - additional comments not included in disqus export. Does not support media files currently.
 * `media_swap` - media files to swap.
 
 ## Export comments from disqus (`./export.php`)
