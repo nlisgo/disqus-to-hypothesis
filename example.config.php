@@ -13,6 +13,9 @@ $GLOBALS['media_new_swap'] = false;
 // Configure: flag to swap target url's for effective url's as some 301's will be in place.
 $GLOBALS['effective_uri_check'] = false;
 
+// Configure: profiles api.
+$GLOBALS['profiles_api'] = 'https://api.elifesciences.org/profiles';
+
 // Configure: base url for Hypothesis API.
 $GLOBALS['hypothesis_api'] = 'https://hypothes.is/api/';
 // Configure: Hypothesis publisher group.

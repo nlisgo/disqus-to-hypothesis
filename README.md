@@ -13,6 +13,7 @@ Prepare `./config.php` from `./example.config.php`.
 * `media_new_location` - base url for your new media location.
 * `media_new_swap` - flag to swap the disqus media url's for new media location in messages.
 * `effective_uri_check` - flag to swap target url's for effective url's as some 301's will be in place.
+* `profiles_api` - profiles api.
 * `hypothesis_api` - base url for Hypothesis API.
 * `hypothesis_group` - Hypothesis publisher group.
 * `hypothesis_authority` - Hypothesis authority.

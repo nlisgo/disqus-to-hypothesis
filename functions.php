@@ -157,6 +157,25 @@ function swap_jwt_for_api_token($jwt, $hypothesis_api) {
 /**
  * @return array
  */
+function gather_usernames($profiles_api) {
+    $client = new Client();
+    $response = $client->request('GET', $profiles_api.'?per-page=1');
+    $usernames = [];
+    $data = json_decode((string) $response->getBody());
+    $limit = 100;
+    for ($page = 1; (($page - 1) * $limit) <= $data->total; $page += 1) {
+        $response = $client->request('GET', $profiles_api.'?page='.$page.'&per-page='.$limit);
+        $list = json_decode((string) $response->getBody());
+        foreach ($list->items as $item) {
+            $usernames[] = $item->id;
+        }
+    }
+    return $usernames;
+}
+
+/**
+ * @return array
+ */
 function gather_annotation_ids_for_username($username, $hypothesis_api, $hypothesis_group, $api_token) {
     $client = new Client();
     $response = $client->request('GET', $hypothesis_api.'search?limit=1&group='.$hypothesis_group.'&user='.$username, [
@@ -179,6 +198,33 @@ function gather_annotation_ids_for_username($username, $hypothesis_api, $hypothe
         }
     }
     return $ids;
+}
+
+/**
+ * @return array
+ */
+function gather_annotation_items_for_username($username, $hypothesis_api, $hypothesis_group, $api_token) {
+    $client = new Client();
+    $response = $client->request('GET', $hypothesis_api.'search?limit=1&group='.$hypothesis_group.'&user='.$username, [
+        'headers' => [
+            'Authorization' => 'Bearer '.$api_token,
+        ],
+    ]);
+    $items = [];
+    $data = json_decode((string) $response->getBody());
+    $limit = 100;
+    for ($offset = 0; $offset <= $data->total; $offset += $limit) {
+        $response = $client->request('GET', $hypothesis_api.'search?limit='.$limit.'&offset='.$offset.'&group='.$hypothesis_group.'&user='.$username, [
+            'headers' => [
+                'Authorization' => 'Bearer '.$api_token,
+            ],
+        ]);
+        $list = json_decode((string) $response->getBody());
+        foreach ($list->rows as $item) {
+            $items[] = $item->uri;
+        }
+    }
+    return $items;
 }
 
 /**
