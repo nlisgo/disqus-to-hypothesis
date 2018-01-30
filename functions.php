@@ -182,6 +182,25 @@ function gather_annotation_ids_for_username($username, $hypothesis_api, $hypothe
 }
 
 /**
+ * @return array
+ */
+function gather_annotation_ids_for_group($hypothesis_api, $hypothesis_group) {
+    $client = new Client();
+    $response = $client->request('GET', $hypothesis_api.'search?limit=1&group='.$hypothesis_group);
+    $ids = [];
+    $data = json_decode((string) $response->getBody());
+    $limit = 100;
+    for ($offset = 0; $offset <= $data->total; $offset += $limit) {
+        $response = $client->request('GET', $hypothesis_api.'search?limit='.$limit.'&offset='.$offset.'&group='.$hypothesis_group);
+        $list = json_decode((string) $response->getBody());
+        foreach ($list->rows as $item) {
+            $ids[] = $item->id;
+        }
+    }
+    return $ids;
+}
+
+/**
  * @return string|bool
  */
 function post_annotation($annotation, $hypothesis_api, $api_token, &$error = [], $attempt = 1) {
@@ -357,18 +376,41 @@ function post_annotations($items, $posted, $group, $export_references, $target_m
         if (!$title) {
             unset($annotation['document']);
         }
+        $annotation['document']['dc'] = [
+            'format' => ['text/html'],
+            'language' => ['en'],
+            'title' => [$title],
+            'publisher' => ['eLife Sciences Publications Limited'],
+        ];
         if ($article_page) {
             $doi = '10.7554/eLife.'.substr($target, -5);
             $annotation['document']['link'][] = [
                 'href' => 'doi:'.$doi,
             ];
-            $annotation['document']['dc'] = [
-                'Format' => ['text/html'],
-                'Language' => ['en'],
-                'Title' => [$title],
-                'Identifier' => [$doi],
-                'Publisher' => ['eLife Sciences Publications Limited'],
+            $annotation['document']['dc']['identifier'] = [$doi];
+        } elseif (preg_match('~/(?P<type>for\-the\-press|inside\-elife|interviews|labs)/(?P<id>[a-z0-9]{8})~', $target, $matches)) {
+            switch ($matches['type']) {
+                case 'for-the-press':
+                    $identifier = 'press-package';
+                    break;
+                case 'inside-elife':
+                    $identifier = 'blog-article';
+                    break;
+                case 'interviews':
+                    $identifier = 'interview';
+                    break;
+                case 'labs':
+                    $identifier = 'labs-post';
+                    break;
+                default:
+                    $identifier = 'other';
+            }
+            $identifier .= '/'.$matches['id'];
+            $annotation['document']['link'][] = [
+                'href' => 'urn:x-dc:elifesciences.org/'.urlencode($identifier),
             ];
+            $annotation['document']['dc']['identifier'] = [$identifier];
+            $annotation['document']['dc']['relation.ispartof'] = ['elifesciences.org'];
         }
 
         $error = [];
