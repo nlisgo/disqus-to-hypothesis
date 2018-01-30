@@ -584,9 +584,9 @@ function post_annotations_import_json_dates($id = null, $created = null, $modifi
             return $import_json_dates;
         } else {
             $import_json_dates[$id] = [
-                'imported_id' => $id,
+                'id' => $id,
                 'created' => $created,
-                'modified' => $modified,
+                'updated' => $modified,
             ];
         }
     }
