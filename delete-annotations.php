@@ -41,6 +41,8 @@ $import_json_ids = [];
 
 $import_json_ids = json_decode(file_get_contents($import_json_ids_file));
 
+$limit = [];
+
 $client = new Client();
 foreach ($import_json_ids as $username => $ids) {
     $jwt = fetch_jwt($username, $hypothesis_authority, $hypothesis_client_id_jwt, $hypothesis_secret_key_jwt);
@@ -50,6 +52,9 @@ foreach ($import_json_ids as $username => $ids) {
     }
     $co = 0;
     foreach ($ids as $id) {
+        if (!empty($limit) && !in_array($id, $limit)) {
+            continue;
+        }
         $co++;
         try {
             $response = $client->request('DELETE', $hypothesis_api.'annotations/'.$id, [
