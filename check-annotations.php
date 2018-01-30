@@ -72,8 +72,6 @@ for ($i = 0; $i < $total; $i += $group_limit) {
         $result = get_annotation($id, $hypothesis_api);
         if ($result === false) {
             debug(sprintf('** Could not find (%s).', $id));
-        } elseif (strpos($result->uri, 'https://elifesciences.org/') === 0) {
-            debug(sprintf('* Errors found (%s).', $result->id));
         } elseif (!in_array($result->id, $ids)) {
             $resubmit[] = $result->id;
             debug(sprintf('Annotation existing but cannot be found in search (%s).', $result->id));
